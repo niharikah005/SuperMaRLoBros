@@ -1,6 +1,6 @@
 # Reinforcement Learning 
 
-RL is used in many different fields like CS, Neuoroscience, Maths, Economucs, etc
+RL is used in many different fields like CS, Neuoroscience, Maths, Economics, etc
 
 > type of machine learning
 
