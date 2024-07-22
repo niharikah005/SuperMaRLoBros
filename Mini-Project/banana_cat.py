@@ -36,22 +36,23 @@ screen = pygame.display.set_mode((800, 400))
 pygame.display.set_caption("Banana Cat")
 
 clock = pygame.time.Clock()
-test_font = pygame.font.Font(os.path.join('assets', 'font', 'Pixeltype.ttf'), 24)
+base_path = 'Mini-Project'
+test_font = pygame.font.Font(os.path.join(base_path, 'assets', 'font', 'Pixeltype.ttf'), 24)
 
 game_active = False
 start_time = 0
 score = 0
 
-sky_surf = pygame.image.load(os.path.join('assets', 'images', 'sky.png')).convert()
-ground_surf = pygame.image.load(os.path.join('assets', 'images', 'ground.png')).convert()
+sky_surf = pygame.image.load(os.path.join(base_path, 'assets', 'images', 'sky.png')).convert()
+ground_surf = pygame.image.load(os.path.join(base_path, 'assets', 'images', 'ground.png')).convert()
 
-banana_surf = pygame.transform.scale2x(pygame.image.load(os.path.join('assets', 'images', 'banana.png')).convert_alpha())
+banana_surf = pygame.transform.scale2x(pygame.image.load(os.path.join(base_path, 'assets', 'images', 'banana.png')).convert_alpha())
 banana_rect = banana_surf.get_rect(midbottom = (800, 325))
-fly_surf = pygame.image.load(os.path.join('assets', 'images', 'fly.png')).convert_alpha()
+fly_surf = pygame.image.load(os.path.join(base_path, 'assets', 'images', 'fly.png')).convert_alpha()
 
 obstacle_rect_list = []
 
-cat_surf = pygame.transform.rotozoom(pygame.image.load(os.path.join('assets', 'images', 'cat.png')).convert_alpha(), 0, 3)
+cat_surf = pygame.transform.rotozoom(pygame.image.load(os.path.join(base_path, 'assets', 'images', 'cat.png')).convert_alpha(), 0, 3)
 cat_rect = cat_surf.get_rect(midbottom = (500, 330))
 cat_gravity = 0
 
