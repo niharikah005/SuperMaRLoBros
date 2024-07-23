@@ -53,7 +53,7 @@ it can be depicted as follows: P* = 1 iff a = argmax(q*(s|a)) or 0 for all other
 
 this can be found using the bellman optimallity equation: which is basically finding all the q-values for the possible actions that the agent may take and then choosing the one with the max q-value. thats it. then just use this q-value in your policy by providing that route with the probability of one and the agetn will then always choose that possibility.  
 
-The bellman equation is non-linear, so we need to use iterative(recursive) methods to solve for it. those methods are:
+The bellman optimality equation is non-linear, so we need to use iterative(recursive) methods to solve for it. those methods are:
 1. Value iteration
 2. Policy iteration
 3. Q-learning

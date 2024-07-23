@@ -1,0 +1,65 @@
+# Git notes  
+
+## Unit 1.1 notes: 
+
+- Version Control: It is a system that is used to tract changes and commits to different files and organize them accordingly.
+  It is a really important system for developers as it allows them to keep track of progress or recent changes that may be leading to bugs. VCs also allow for easy retrieval in case of file mishandling or corruption and cause only small overheads.  
+
+- Types of Version Control: There a many types but the main ones are as follows
+
+    1. **Local VCs**: these operate locally on ones device and and keep check of the file versions, the most used Local VC is the RCS which stores patches of the files in seperate directories and then rebuilds a file using those patches.
+
+    2. **Centralized VCs**: These are VCs that have a centralized server that controls all versions of each and every file inputted to it. This system comes in use when developers need to collaborate with each other on a specific task. It's down-side is that if the server goes down for some period of time then no one will be able to operate on those files. Also, corruptions will now affect all the files connected to that version which could cause a lot of problems as well.
+
+    3. **Distributed VCs**: In this case, the versions on the centralized server are now copied (cloned) on each of the developers device, thus the files can now be copied from any of the developers if the server ever goes thru any issues. This also allows for smooth collaboration with others  
+
+## Unit 1.2 notes:  
+
+- Git is built on the framework of a previous VCS that the Linux community used. It offers great flexibility and speed at low overhead costs and also has great branching system in-built in it.
+
+## Unit 1.3 notes:  
+
+- Difference Between *Git* and *Subversion* and other VCSs is that the other VCSs (subversion included) store information as file  
+  changes, also known as `delta-based` version control while Git stores data as a stream of snapshots of the file at every version.  
+  in this way it will store changes as snapshots and store links of previous snapshots if no changes are made. This means files are stored at each version change, and not just during specific delta-changes.  
+
+- **Local operations**: Git allows for local operations because of its similarity to distributed VC. This means that since the file    
+  has been stored on the device as well, all the changes can be made on it first and then commited to the main server, this allows for faster working and flexibility.
+
+- **Integrity**: Git uses SHA-1 hashing to store and retrieve the files, thus it is secure and always aware of changes.  
+  
+- **Git only adds data** : Git operations are such that it only adds data, and undoing any action requires different methods.  
+  usually using the commands `git commit --amend`, `git reset HEAD <file>`, or `git checkout -- <file>`. A new command `git restore`  
+  can also be used to undo things.
+
+- **Three main states of GIT**: Git has three main states - *modified*, *staged* and *commited*. The modified state is the one which  
+  occurs in the working directory, here the changes can be made onto an existing file for a new version. The staged state is usually
+  in the staging area where the developer can decide which changes should take place on the file and stage those changes for the final 
+  commit. The commited state occurs in the .git directory where all the changes are permanently stored as snapshots of the file and updated in the next version. This is how most of the git operations work.
+
+
+## Unit 1.6 notes:
+
+- one can configure the way git behaves on the command line using the `git config` command.  
+
+- `git config --list` will tell the user all the information that git can find.  
+
+- to change the test editor, for windows, put the whole path alogside the command `git config --global core.editor $path` if we want  
+  to apply the change for all personal repos, or use the --local tag for certain repos only.  
+
+- to check all settings use the command- `git config --list --show-origin`  
+
+- to see specific key values use the command- `git config <key>` eg. git config user.name  
+
+- Since Git might read the same configuration variable value from more than one file, it’s possible that you have an unexpected value for one of these values and you don’t know why. In cases like that, you can query Git as to the origin for that value, and it will tell you which configuration file had the final say in setting that value:
+
+[$ git config --show-origin rerere.autoUpdate
+file:/home/johndoe/.gitconfig	false]
+
+the "rerere.autoUpdate" is special configuration for git to remember what changes the user makes to resolve a conflict. Then when similar types of issues arrive, git will automatically resolve those conflicts thru the use of rerere function. We must enable this to be True for git to remember the changes made.  
+
+## Unit 1.7 notes:  
+
+- for further help about a certain command, which we will call <verb>, use: `git help <verb>` or `git <verb> --help`  
+
+- for a short understanding, use: `git <verb> -h`
