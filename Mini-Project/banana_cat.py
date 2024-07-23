@@ -1,7 +1,63 @@
 import pygame
 from sys import exit
-from random import randint
+from random import randint, choice
 import os
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.transform.rotozoom(pygame.image.load(os.path.join('Mini-Project', 'assets', 'images', 'cat.png')).convert_alpha(), 0, 3)
+        self.rect = self.image.get_rect(midbottom = (100, 310))
+        self.gravity = 0
+
+
+    def player_input(self):
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_SPACE] and self.rect.bottom >= 300:
+            self.gravity = -20
+    
+    def apply_gravity(self): 
+        self.gravity += 1
+        self.rect.y += self.gravity
+
+        if self.rect.bottom >= 330:
+            self.rect.bottom = 330
+    
+    def update(self):
+        self.player_input()
+        self.apply_gravity()
+
+class Obstacle(pygame.sprite.Sprite):
+    def __init__(self, type):
+        super().__init__()
+        if type == 'fly':
+            fly1 = pygame.image.load(os.path.join('Mini-Project', 'assets', 'images', 'fly1.png')).convert_alpha()
+            fly2 = pygame.image.load(os.path.join('Mini-Project', 'assets', 'images', 'fly2.png')).convert_alpha()
+            self.frames = [fly1, fly2]
+            y_pos = 210
+        else:
+            banana = pygame.transform.scale2x(pygame.image.load(os.path.join('Mini-Project', 'assets', 'images', 'banana.png')).convert_alpha())
+            self.frames = [banana]
+            y_pos = 325
+
+        self.animation_index = 0
+        self.image = self.frames[self.animation_index]
+        self.rect = self.image.get_rect(bottomright = (randint(900, 1100), y_pos))
+
+    def animation(self):
+        self.animation_index += 0.1
+        if self.animation_index >= len(self.frames):
+            self.animation_index = 0
+        self.image = self.frames[int(self.animation_index)]
+
+    def update(self):
+        self.animation()
+        self.rect.x -= 5
+        self.destroy()
+
+    def destroy(self):
+        if self.rect.x <= -100:
+            self.kill()
 
 def display_score():
     current_time = pygame.time.get_ticks() - start_time
@@ -10,24 +66,10 @@ def display_score():
     screen.blit(score_surf, score_rect)
     return current_time
 
-def obstacle_movement(obstacle_list):
-    if obstacle_list:
-        for obstacle_rect in obstacle_list:
-            obstacle_rect.x -= 5
-            if obstacle_rect.bottom == 210:
-                screen.blit(fly_surf, obstacle_rect)
-            else:
-                screen.blit(banana_surf, obstacle_rect)
-
-        obstacle_list = [obstacle for obstacle in obstacle_list if obstacle.x > 70]
-
-    return obstacle_list
-
-def collision(player, obstacles):
-    if obstacles:
-        for obstacle in obstacles:
-            if player.colliderect(obstacle): 
-                return False
+def collisions():
+    if pygame.sprite.spritecollide(player.sprite, obstacle_grp, False):
+        obstacle_grp.empty()
+        return False
     return True
 
 pygame.init()
@@ -36,38 +78,31 @@ screen = pygame.display.set_mode((800, 400))
 pygame.display.set_caption("Banana Cat")
 
 clock = pygame.time.Clock()
-base_path = 'Mini-Project'
-test_font = pygame.font.Font(os.path.join(base_path, 'assets', 'font', 'Pixeltype.ttf'), 24)
+test_font = pygame.font.Font(os.path.join('Mini-Project', 'assets', 'font', 'Pixeltype.ttf'), 24)
 
 game_active = False
 start_time = 0
 score = 0
 
-sky_surf = pygame.image.load(os.path.join(base_path, 'assets', 'images', 'sky.png')).convert()
-ground_surf = pygame.image.load(os.path.join(base_path, 'assets', 'images', 'ground.png')).convert()
+#groups
+player = pygame.sprite.GroupSingle()
+player.add(Player())
+obstacle_grp = pygame.sprite.Group()
 
-banana_surf = pygame.transform.scale2x(pygame.image.load(os.path.join(base_path, 'assets', 'images', 'banana.png')).convert_alpha())
-banana_rect = banana_surf.get_rect(midbottom = (800, 325))
-fly_surf = pygame.image.load(os.path.join(base_path, 'assets', 'images', 'fly.png')).convert_alpha()
+sky_surf = pygame.image.load(os.path.join('Mini-Project', 'assets', 'images', 'sky.png')).convert()
+ground_surf = pygame.image.load(os.path.join('Mini-Project', 'assets', 'images', 'ground.png')).convert()
 
-obstacle_rect_list = []
-
-cat_surf = pygame.transform.rotozoom(pygame.image.load(os.path.join(base_path, 'assets', 'images', 'cat.png')).convert_alpha(), 0, 3)
-cat_rect = cat_surf.get_rect(midbottom = (500, 330))
-cat_gravity = 0
-
-scale = 3
-cat_gamescreen = pygame.transform.scale(cat_surf, (cat_surf.width * scale , cat_surf.height * scale))
-cat_gamescreen_rect = cat_gamescreen.get_rect(center = (400, 200))
+cat_surf = pygame.transform.rotozoom(pygame.image.load(os.path.join('Mini-Project', 'assets', 'images', 'cat.png')).convert_alpha(), 0, 6)
+cat_gamescreen_rect = cat_surf.get_rect(center=(400, 200))
 
 game_name = test_font.render('Banana Cat', False, 'Black')
-game_name_rect = game_name.get_rect(center = (400, 100))
+game_name_rect = game_name.get_rect(center=(400, 100))
 
 start_message = test_font.render('Press space to play', False, 'Black')
-start_message_rect = start_message.get_rect(center = (400, 300))
+start_message_rect = start_message.get_rect(center=(400, 300))
 
-game_message = test_font.render('You lost!  Press Space to restart', False, 'Black')
-game_message_rect = game_message.get_rect(center = (400, 300))
+game_message = test_font.render('You lost! Press Space to restart', False, 'Black')
+game_message_rect = game_message.get_rect(center=(400, 300))
 
 obstacle_timer = pygame.USEREVENT + 1
 pygame.time.set_timer(obstacle_timer, 1000)
@@ -78,52 +113,37 @@ while True:
             pygame.quit()
             exit()
 
-        if game_active:
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE and cat_rect.bottom >= 300:
-                    cat_gravity = -20
-
-                if event.key == pygame.K_BACKSPACE:
-                    game_active = True
-        else:
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            if not game_active:
                 game_active = True
-                banana_rect.left = 800
                 start_time = pygame.time.get_ticks()
-
-        if event.type == obstacle_timer and game_active:
-            if randint(0, 2):
-                obstacle_rect_list.append(banana_surf.get_rect(bottomright = (randint(900, 1100), 325)))
             else:
-                obstacle_rect_list.append(fly_surf.get_rect(bottomright = (randint(900, 1100), 210)))
-
+                if player.sprite.rect.bottom >= 300:
+                    player.sprite.gravity = -20
+                
+        if game_active and event.type == obstacle_timer:
+            obstacle_grp.add(Obstacle(choice(['fly', 'banana'])))
 
     if game_active:
         screen.blit(sky_surf, (0, 0))
         screen.blit(ground_surf, (0, 300))
         score = display_score()
-        screen.blit(banana_surf, banana_rect)
 
-        cat_gravity += 1
-        cat_rect.y += cat_gravity
+        player.draw(screen)
+        player.update()
+        pygame.draw.rect(screen, 'Red', player.sprite.rect, 2)  
 
-        if cat_rect.bottom >= 330:
-            cat_rect.bottom = 330
+        obstacle_grp.draw(screen)
+        obstacle_grp.update()
+        for obstacle in obstacle_grp:
+            pygame.draw.rect(screen, 'Red', obstacle.rect, 2)  
 
-        screen.blit(cat_surf, cat_rect)
-
-        obstacle_rect_list = obstacle_movement(obstacle_rect_list)
-
-        game_active = collision(cat_rect, obstacle_rect_list)
+        game_active = collisions()
 
     else:
         screen.fill((94, 129, 162))
-        screen.blit(cat_gamescreen, cat_gamescreen_rect)
+        screen.blit(cat_surf, cat_gamescreen_rect)
         screen.blit(game_name, game_name_rect)
-
-        obstacle_rect_list.clear()
-        cat_rect.midbottom = (80, 300)
-        cat_gravity = 0
 
         if score == 0:
             screen.blit(start_message, start_message_rect)
