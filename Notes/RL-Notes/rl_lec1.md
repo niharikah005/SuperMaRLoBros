@@ -40,7 +40,7 @@ Agent takes actions at each step based on observations of the environment, gets 
 
 No control over environment except through actions which can influence it
 
-![](images\agent-environment.png)
+![](images/agent-environment.png)
 
 ### History and State
 
