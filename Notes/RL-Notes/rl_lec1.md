@@ -73,7 +73,7 @@ S<sub>t</sub> = _f_(H<sub>t</sub>)
 
     - any function of history, S<sup>a</sup><sub>t</sub> = _f_(H<sub>t</sub>)
 
-    3. Information/ **Markov state** 
+3. Information/ **Markov state** 
 
     - contains all useful information from history
 
