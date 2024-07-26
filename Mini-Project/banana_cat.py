@@ -9,6 +9,7 @@ class Player(pygame.sprite.Sprite):
         self.image = pygame.transform.rotozoom(pygame.image.load(os.path.join('Mini-Project', 'assets', 'images', 'cat.png')).convert_alpha(), 0, 3)
         self.rect = self.image.get_rect(midbottom = (100, 310))
         self.gravity = 0
+        self.mask = pygame.mask.from_surface(self.image)
 
     def player_input(self):
         keys = pygame.key.get_pressed()
@@ -42,6 +43,7 @@ class Obstacle(pygame.sprite.Sprite):
         self.animation_index = 0
         self.image = self.frames[self.animation_index]
         self.rect = self.image.get_rect(bottomright = (randint(900, 1100), y_pos))
+        self.mask = pygame.mask.from_surface(self.image)
 
     def animation(self):
         self.animation_index += 0.1 # increment slowly so animation is smooth and not too fast
@@ -63,6 +65,7 @@ class Reward(pygame.sprite.Sprite):
         super().__init__()
         self.image = pygame.image.load(os.path.join('Mini-Project', 'assets', 'images', 'fish.png')).convert_alpha()
         self.rect = self.image.get_rect(midbottom = (randint(900, 1200), 320))
+        self.mask = pygame.mask.from_surface(self.image)
     
     def update(self):
         self.rect.x -= 5
@@ -80,14 +83,14 @@ def display_score():
     return current_time
 
 def collisions():
-    if pygame.sprite.spritecollide(player.sprite, obstacle_grp, False):
+    if pygame.sprite.spritecollide(player.sprite, obstacle_grp, False, pygame.sprite.collide_mask):
         obstacle_grp.empty() # remove all obstacles from grp cuz game over
         return False
     return True
 
 def reward_collide():
     for reward in reward_grp:
-        if reward.rect.colliderect(player.sprite.rect):
+        if pygame.sprite.spritecollide(player.sprite, reward_grp, False, pygame.sprite.collide_mask):
             reward.kill() # remove that collided reward from grp
             return 1
     return 0
@@ -160,17 +163,17 @@ while True:
 
         player.draw(screen)
         player.update()
-        pygame.draw.rect(screen, 'Red', player.sprite.rect, 2)  # bounding box
+        # pygame.draw.rect(screen, 'Red', player.sprite.rect, 2)  # bounding box
 
         obstacle_grp.draw(screen)
         obstacle_grp.update()
-        for obstacle in obstacle_grp:  # bounding box
-            pygame.draw.rect(screen, 'Red', obstacle.rect, 2)  
+        # for obstacle in obstacle_grp:  # bounding box
+        #     pygame.draw.rect(screen, 'Red', obstacle.rect, 2)  
 
         reward_grp.draw(screen)
         reward_grp.update()
-        for reward in reward_grp:  # bounding box
-            pygame.draw.rect(screen, 'Red', reward.rect, 2)
+        # for reward in reward_grp:  # bounding box
+        #     pygame.draw.rect(screen, 'Red', reward.rect, 2)
 
         reward_score += reward_collide()
         reward_surf = test_font.render(f'Fish: {reward_score}', False, 'Black')
