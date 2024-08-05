@@ -1,0 +1,25 @@
+import numpy as np
+lst1 = np.array([[1,2,3],[4,5,6]])
+lst2 = np.array([[7,8,9],[10,11,12]])
+lst3 = lst1 + lst2
+print(lst3)
+lst4 = lst1*2
+print(lst4)
+lst5 = np.ones((1,3,3),dtype = np.int16)
+print(lst5)
+lst6 = np.eye(4,dtype = int)
+print(lst6)
+a = np.array([x for x in range(27)], dtype= np.int16)
+o = a.reshape(3,3,3)
+b = o.astype(float)
+print(b)
+lst7 = lst6.astype(bool)
+print(lst7)
+lst8 = np.vstack((lst1,lst2))
+print(lst8)
+lst9 = np.arange(0,100,2)
+lst10 = lst9.reshape(2,5,5)
+print(lst10)
+
+lst12 = np.random.normal(size = (2,2))
+print(lst12)
