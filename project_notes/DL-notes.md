@@ -33,8 +33,31 @@ This a great way of breaking down complex calculations and finding easier deriva
 
 The steps to find regression then are simple: first find the values of z ,y hat, and J. Then compute the derivatives of the features alongside z and j. Finally update both J and features using grad descent.
 
-# vectorrization:
+# vectorization:
 This is a method in which we create vectors of features and training examples and then multiply them together using the following code:
 
 z = np.dot(w,x) + b and this will provide all the values added together and finally pushed into the variable z. It is a much faster way of doing calculations instead of using a for loop. similarly we can also exponentiate vector values to another vector using :
 vector_2 = np.exp(vector_1). This also is much faster than the usual for loop.
+
+# vectorization of logistic regression:
+
+This is done by using X(n_x,m) matrix for the training examples, b row (1,m) matrix for the weights, wT(1,n_x) row matrix for the parameters and Z(1,m) matrix for the sigmoid input, then we have the y hat (1,m) row matrix for the sigmoid output.
+
+This prevents the usage of explicit for loops that slow down the network substantially.
+The formula is as follows: Z = np.dot(w.T, X) + b, where b is any real number; during calculations python will automatically expand the real number into a matrix of same dimensions as the operand. This is called broadcasting and is very useful in a lot of cases.
+
+## useful numpy commands: 
+np.sum(vector_name) can be used to find the sum of all the elements present in the matrix.
+np.linalg.norm(vector_name, axis = 0 or 1 | None, keepdims = False | True) helps to normalize the vector, this speeds-up the process of gradient descent.
+
+# Final algorithm:
+
+1. Z = np.dot(w.T, X) + b
+2. A = sigmoid(Z)
+3. dZ = A - Y where Y is all the output values that were provided in the dataset. Its a matrix.
+4. dw = (1/m) * np.dot(X,dZ.T)
+5. db = (1/m) * np.sum(dZ) 
+This will do both forward propagation and back-propagation without the use of for loops, hence it is much faster (around 300 times) than the for loop implementation.
+finally the grad descent:
+6. w = w - (learning rate) * dw
+7. b = b - (learning rate) * db

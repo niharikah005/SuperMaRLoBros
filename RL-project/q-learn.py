@@ -1,5 +1,9 @@
 # import libs
 import numpy as np
+import pygame
+import time
+import os
+import random
 
 # create the environment
 environment_rows = 11
@@ -127,5 +131,58 @@ for episode in range(1000):
 # position is.
 
 # run the shortest path function for a value:
-print(shortest_path(0,0)) # dies not work since its a terminal state
-print(shortest_path(9,0)) 
+
+pygame.init()
+WIDTH, HEIGHT = 770, 770
+WIN = pygame.display.set_mode((WIDTH, HEIGHT))
+clock = pygame.time.Clock()
+running = True
+FPS = 60
+BG = pygame.Color(0,0,0)
+CellSize = WIDTH // 11
+RowCount = 11
+ColCount = 11
+created = False
+count = 0
+path_place = 0
+
+def final(window):
+    reward = pygame.Rect(5*CellSize, 0, CellSize, CellSize)
+    pygame.draw.rect(window, pygame.Color(0,255,0), reward)
+
+def terminals(window):
+    for rows in range(1,10):
+        for columns in aisles[rows]:
+            pygame.draw.rect(window, pygame.Color(255,255,255), (columns*CellSize, rows*CellSize, CellSize, CellSize))
+
+def create_player(window,created,orig_row_index, orig_col_index):
+    row_index, column_index = orig_row_index, orig_col_index
+    player = pygame.Rect(column_index*CellSize, row_index*CellSize, CellSize, CellSize)
+    pygame.draw.rect(window, pygame.Color(0,0,255), player)
+
+path = []
+path = shortest_path(9,3)
+
+def updates(window,orig_row_index, orig_col_index):
+    window.fill(BG)
+    final(window)
+    terminals(window)
+    create_player(window,created,orig_row_index, orig_col_index)
+    pygame.display.update()
+
+while running:
+    clock.tick(FPS)
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    if count % (FPS) == 0:
+        if path_place < len(path):
+            orig_row_index, orig_col_index = path[path_place]
+            path_place += 1
+    count += 1
+
+    updates(WIN,orig_row_index, orig_col_index)
+    
+
+pygame.quit()
