@@ -8,10 +8,10 @@ import random
 from collections import deque
 
 maze = np.array([
-    [0, 1, 0, 0],
-    [0, 1, 0, 1],
-    [0, 0, 0, 1],
-    [1, 1, 0, 10]
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+    [0, 0, 0, 10]
 ])
 
 ENV_ROWS, ENV_COLS = 4, 4
@@ -53,7 +53,7 @@ class MazeSolver_DQL():
     learning_rate = 0.001   # the learning rate for game
     discount_factor = 0.8   # the dicount factore for the game
     network_sync_rate = 10  #no of steps the agent takes before syncing the policy and the target nns
-    replay_memory_size = 1000   # size of replay memory
+    replay_memory_size = 10000   # size of replay memory
     mini_batch_size = 32    # size of training data sampled from the memory
     row_index, col_index = 0, 0
     reward = 0
@@ -74,11 +74,11 @@ class MazeSolver_DQL():
     def get_reward(self, position, goal_position, maze):
         # dynamic reward function.
         if position == goal_position:
-            return 1
-        elif maze[position] == 1:
-            return -0.1
+            return 100
+        elif maze[position] == 1 or position == (-1,-1):
+            return -10
         else:
-            return -0.01
+            return -1
 
     def get_start(self):
         self.row_index = np.random.randint(ENV_ROWS)
@@ -89,16 +89,19 @@ class MazeSolver_DQL():
             return self.row_index,self.col_index
 
     def get_next_loc(self, action_index):
-            new_row_index  =self.row_index
+            new_row_index  = self.row_index
             new_col_index = self.col_index
-            if self.ACTIONS[action_index] == "L" and new_col_index > 0:
+            if self.ACTIONS[action_index] == "L" and new_col_index-1 >= 0:
                 new_col_index -= 1
-            if self.ACTIONS[action_index] == "R" and new_col_index < 3:
+            if self.ACTIONS[action_index] == "R" and new_col_index +1 <= 3:
                 new_col_index += 1
-            if self.ACTIONS[action_index] == "U" and new_row_index > 0:
+            if self.ACTIONS[action_index] == "U" and new_row_index -1 >= 0:
                 new_row_index -= 1 
-            if self.ACTIONS[action_index] == "D" and new_row_index < 3:
+            if self.ACTIONS[action_index] == "D" and new_row_index +1 < 3:
                 new_row_index += 1
+            else:
+                new_row_index  = -1
+                new_col_index = -1
             return new_row_index, new_col_index # changes the row and col according to the action chosen
     
     def truncate_check(self, step_count):
@@ -177,12 +180,9 @@ class MazeSolver_DQL():
                 rewards_per_episode[i] = 1
             
             # check if enough exp has been collected and some reward has been collected:
-            if len(memory) >= self.mini_batch_size and np.sum(rewards_per_episode) > 0:
+            if len(memory) >= self.mini_batch_size:
                 mini_batch = memory.sample(self.mini_batch_size)
-                for batch in mini_batch:
-                    print(f"{batch[1]}, {batch[3]}")
                 self.optimize(mini_batch, policy_nn, target_nn)
-
                 # decay the epsilon:
                 epsilon = max(epsilon - 1/episodes, 0)  # limit the decay to zero
                 epsilon_decay.append(epsilon)   # store the epsilon history as a list
@@ -192,6 +192,7 @@ class MazeSolver_DQL():
                     target_nn.load_state_dict(policy_nn.state_dict())
                     step_count = 0
 
+        # print(epsilon_decay)
         torch.save(policy_nn.state_dict(), "maze_solver.pt")
 
     # optimize the network:
@@ -223,6 +224,7 @@ class MazeSolver_DQL():
 
         # compute loss for the whole mini_batch:
         loss = self.loss_fn(torch.stack(current_q_list), torch.stack(target_q_list))
+        # print(loss*1000)
 
         # optimize the model:
         self.optimizer.zero_grad()  # clears gradients
