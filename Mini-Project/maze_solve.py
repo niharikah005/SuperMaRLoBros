@@ -6,284 +6,328 @@ from torch import nn
 import torch.nn.functional as F
 import torch.optim as optim
 import matplotlib.pyplot as plt
-import datetime
+import pygame
 
-# Define maze
+pygame.init()
+
+# 1 is blocked and 0 is free to move on
 maze = np.array([
-    [1.0, 0.0, 0.0, 1.0, 1.0],
-    [1.0, 1.0, 1.0, 1.0, 0.0],
-    [0.0, 1.0, 0.0, 1.0, 1.0],
-    [0.0, 1.0, 1.0, 1.0, 1.0],
-    [1.0, 1.0, 0.0, 1.0, 1.0]
+    [0.0, 1.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0, 0.0, 1.0],
+    [1.0, 0.0, 1.0, 0.0, 0.0],
+    [1.0, 0.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0, 0.0]
 ])
 
-ACTIONS = {'L': 0, 'D': 1, 'R': 2, 'U': 3}
-rows, cols = maze.shape
-visited_mark = 0.8
+rows, cols = maze.shape # 5, 5
 p_mark = 0.5
-epsilon = 0.1
 
-class MazeSolve(object):
-    def __init__(self, maze, player=(0, 0)):
-        self.ogmaze = maze
-        self.target = (4, 4)
-        self.free = [(r, c) for r in range(rows) for c in range(cols) if self.ogmaze[r, c] == 1.0]
-        self.free.remove(self.target)
-        if player not in self.free:
-            raise ValueError("Invalid starting position for player")
-        self.reset(player)
+epsilon = 1.0  # high initial exploration rate
+epsilon_min = 0.01  # min epsilon
+epsilon_decay = 0.995 # factor to decay epsilon by
 
-    def reset(self, player):
-        self.player = player
-        self.maze = np.copy(self.ogmaze)
-        self.state = (player[0], player[1], 'start')
-        self.min_reward = -0.5 * self.maze.size
-        self.total_reward = 0
-        self.visited = set()
-        self.visited.add(player)
+class DQN(nn.Module):
+    def __init__(self, in_states, out_actions):
+        super(DQN, self).__init__()
+        self.fc1 = nn.Linear(in_states, 64)
+        self.fc2 = nn.Linear(64, 64)
+        self.out = nn.Linear(64, out_actions)
+
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
+        return self.out(x)
+    
+# for replay mem
+class Memory():
+    def __init__(self, max_len):
+        self.memory = deque([], maxlen=max_len)
+
+    def add(self, transition):
+        self.memory.append(transition)
+
+    def sample(self, sample_size):
+        return random.sample(self.memory, sample_size)
+    
+    def __len__(self):
+        return len(self.memory)
+    
+class Mazesolve():
+    def __init__(self):
+        self.model = DQN(in_states=25, out_actions=4) # policy network
+        self.target_model = DQN(in_states=25, out_actions=4) # target network
+        self.memory = Memory(max_len=10000) # create mem 
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+        self.loss = nn.MSELoss() # mean sqred error loss
+        self.epsilon = epsilon
+        self.minreward = -1.5*rows*cols # if reward < minreward, then terminate
+        self.gamma = 0.95 # discount factor
+        self.batch_size = 64 
+        self.steps = 0 
+
+    def update_target_model(self):
+        self.target_model.load_state_dict(self.model.state_dict())
+
+    def get_state(self):
+        canvas = np.copy(self.maze)
+        row, col, _ = self.state
+        canvas[row, col] = p_mark
+        return canvas.flatten()
 
     def update_state(self, action):
-        rat_row, rat_col, mode = self.state
+        p_row, p_col, mode = self.state
         #print(f"Before action {action}, position: {self.state}")
-
-        if self.maze[rat_row, rat_col] > 0.0:
-            self.visited.add((rat_row, rat_col))
 
         valid_actions = self.valid_actions()
         if action not in valid_actions:
             mode = 'invalid'
         else:
-            mode = 'valid'
-            if action == 'L':
-                rat_col -= 1
-            elif action == 'D':
-                rat_row += 1
-            elif action == 'R':
-                rat_col += 1
-            elif action == 'U':
-                rat_row -= 1
+            mode = 'valid' 
+            if action == 0:
+                p_col -= 1
+            elif action == 1:
+                p_row += 1
+            elif action == 2:
+                p_col += 1
+            elif action == 3:
+                p_row -= 1
 
-        if 0 <= rat_row < rows and 0 <= rat_col < cols:
-            if self.maze[rat_row, rat_col] == 0.0:
+        if 0 <= p_row < rows and 0 <= p_col < cols:
+            if self.maze[p_row, p_col] == 1.0: # trying to move onto blocked square
                 mode = 'blocked'
         else:
             mode = 'invalid'
 
-        self.state = (rat_row, rat_col, mode)
-        #print(f"After action {action}, position: {self.state}")
-
+        self.state = (p_row, p_col, mode)
+        if mode == 'valid': # to keep track of visited squares
+            self.visited.add((p_row, p_col))
+        #print(f"action taken: {action}, position: {self.state}")
 
     def get_reward(self):
         p_row, p_col, mode = self.state
         if (p_row, p_col) == self.target:
-            return 1.0
+            return 100.0
         if mode == 'blocked':
-            return -1.0
+            return -10.0
         if (p_row, p_col) in self.visited:
-            return -0.25
+            return -1.5
         if mode == 'invalid':
-            return -0.75
-        return -0.04
-
-    def act(self, action):
-        self.update_state(action)
-        reward = self.get_reward()
-        self.total_reward += reward
-        status = self.game_status()
-        envstate = self.observe()
-        #print(f"Action: {action}, Reward: {reward}, Total Reward: {self.total_reward}, Status: {status}")
-        return envstate, self.total_reward, status
-
-    def observe(self):
-        canvas = self.draw_env()
-        return canvas.reshape((1, -1))
-
-    def draw_env(self):
-        canvas = np.copy(self.maze)
-        row, col, _ = self.state
-        canvas[row, col] = p_mark
-        return canvas
-
-    def game_status(self):
-        if self.total_reward < self.min_reward:
-            return 'lose'
-        p_row, p_col, _ = self.state
-        if (p_row, p_col) == self.target:
-            return 'win'
-        return 'ongoing'
-
+            return -2.0
+        return -0.75
+    
+    def add_to_mem(self, state, action, reward, next_state, game_status): 
+        self.memory.add((state, action, reward, next_state, game_status))
+    
     def valid_actions(self):
         row, col, _ = self.state
         actions = []
-        if col > 0: actions.append('L')
-        if col < cols - 1: actions.append('R')
-        if row > 0: actions.append('U')
-        if row < rows - 1: actions.append('D')
-        #print(f"Valid actions: {actions}")
-        return actions
-
-class Experience(object):
-    def __init__(self, model, max_len=100, discount=0.95):
-        self.model = model
-        self.max_len = max_len
-        self.discount = discount
-        self.memory = deque([], maxlen=max_len)
-        self.batch_size = 32
-
-    def append(self, episode):
-        self.memory.append(episode)
-
-    def predict(self, envstate):
-        if isinstance(envstate, torch.Tensor):
-            envstate_tensor = envstate
-        elif isinstance(envstate, np.ndarray):
-            envstate_tensor = torch.from_numpy(envstate).float()
-        else:
-            raise TypeError("Expected input to be a NumPy array or PyTorch tensor")
-
-        if len(envstate_tensor.shape) == 1:
-            envstate_tensor = envstate_tensor.unsqueeze(0)
-        return self.model(envstate_tensor).detach().numpy()
-
-    def get_data(self, data_size=10):
-        if len(self.memory) == 0:
-            return np.zeros((1, self.model.out.out_features)), np.zeros((1, self.model.out.out_features))
-        data_size = min(len(self.memory), data_size)
-        env_size = self.memory[0][0].shape[1]
-        inputs = np.zeros((data_size, env_size))
-        targets = np.zeros((data_size, self.model.out.out_features))
-        for i, j in enumerate(np.random.choice(range(len(self.memory)), data_size, replace=False)):
-            envstate, action, reward, envstate_next, game_over = self.memory[j]
-            inputs[i] = envstate
-            targets[i] = self.predict(envstate)
-            Q_sa = np.max(self.predict(envstate_next))
-            if game_over:
-                targets[i, ACTIONS[action]] = reward
-            else:
-                targets[i, action] = reward + self.discount * Q_sa
-        return inputs, targets
-
-def qtrain(model, maze, **opt):
-    global epsilon
-    n_ep = opt.get('n_ep', 100)
-    maxlen = opt.get('max_len', 250)
-    data_size = opt.get('data_size', 50)
-    name = opt.get('name', 'model')
-
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-    criterion = nn.MSELoss()
-
-    mazesolve = MazeSolve(maze)
-    experience = Experience(model, max_len=maxlen)
-
-    win_history = []
-    hsize = mazesolve.maze.size // 2
-    win_rate = 0.0
-    total_rewards = []
-
-    for episode in range(n_ep):
-        print('episode: ', episode)
-        loss = 0.0
-        rat_cell = random.choice(mazesolve.free)
-        mazesolve.reset(rat_cell)
-        game_over = False
-        total_reward = 0
-        game_status = ''
-
-        envstate = mazesolve.observe()
-        while not game_over and game_status!='lose':
-            valid_actions = mazesolve.valid_actions()
-            if not valid_actions:
-                break
-
-            prev_envstate = envstate
-            if np.random.rand() < epsilon:
-                action = np.random.choice(valid_actions)
-            else:
-                if len(experience.memory) < experience.batch_size:
-                    action = np.random.choice(valid_actions)
-                else:
-                    prev_envstate_tensor = torch.from_numpy(prev_envstate.astype(np.float32))
-                    q = experience.predict(prev_envstate_tensor)
-                    action = int(np.argmax(q))  
-                    action = list(ACTIONS.keys())[action]  # to map index to action
-            
-            envstate_next, reward, game_status = mazesolve.act(action)
-            envstate_next_tensor = torch.from_numpy(envstate_next.astype(np.float32))
-
-            episode = [prev_envstate, action, reward, envstate_next, game_status]
-            experience.append(episode)
-            total_reward += reward
-
-            if len(experience.memory) >= experience.batch_size:
-                inputs, targets = experience.get_data(data_size=data_size)
-                if inputs.size == 0 or targets.size == 0:
-                    continue
-
-                inputs_tensor = torch.from_numpy(inputs.astype(np.float32))
-                targets_tensor = torch.from_numpy(targets.astype(np.float32))
-
-                model.train()
-                optimizer.zero_grad()
-                outputs = model(inputs_tensor)
-                loss = criterion(outputs, targets_tensor)
-                loss.backward()
-                optimizer.step()
-        if game_status == 'lose':
-                print(f"terminated becuz of loss at episode {episode}.")
-                game_over = True
-        if game_status == 'win':
-            print(f"terminated cuz of win on ep {episode}")
-        print(total_reward)
-        total_rewards.append(total_reward)
-
-        if len(win_history) > hsize:
-            win_rate = sum(win_history[-hsize:]) / hsize
-
-        if win_rate > 0.9:
-            epsilon = 0.05
-        if sum(win_history[-hsize:]) == hsize: #and completion_check(model, mazesolve):
-            print("Reached 100% win rate at episode: %d" % (episode,))
-            break
-
-    torch.save(model.state_dict(), name + ".pt")
-    print('files: %s' % (name + ".pt",))
-    return total_rewards
-
-
-class DQN(nn.Module):
-    def __init__(self, in_states, h1_nodes, out_actions):
-        super().__init__()
-        self.fc1 = nn.Linear(in_states, h1_nodes)
-        self.out = nn.Linear(h1_nodes, out_actions)
         
-    def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = self.out(x)
-        return x
+        # not going out of boundary and target loc not blocked
+        if col > 0 and self.maze[row, col - 1] != 1.0:  
+            actions.append(0)
+        
+        if row < rows - 1 and self.maze[row + 1, col] != 1.0: 
+            actions.append(1)
+        
+        if col < cols - 1 and self.maze[row, col + 1] != 1.0:  
+            actions.append(2)
+        
+        if row > 0 and self.maze[row - 1, col] != 1.0:  
+            actions.append(3)
+        
+        return actions
     
-    def predict(self, x):
-        with torch.no_grad():
-            x = self.forward(x)
-        return x.numpy()
+    def action_select(self, state):
+        if random.random() < self.epsilon:
+            return random.randint(0, 3)  
+        else:
+            with torch.no_grad():
+                return self.model(torch.FloatTensor(state)).argmax().item()
 
-def build_model(maze, lr=0.001):
-    maze_size = maze.size
-    num_actions = len(ACTIONS)
-    h1_nodes = maze_size
-    model = DQN(maze_size, h1_nodes, num_actions)
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-    criterion = nn.MSELoss()
-    return model, optimizer, criterion
+    def game_status(self):
+        p_row, p_col, _ = self.state
+        if (p_row, p_col) == self.target:
+            return 'win'
+        if self.total_reward < self.minreward or self.steps > 3*rows*cols: # reward is lesser than minreward or player has made too many redundant steps
+            return 'lose'
+        return 'not_over'
 
-input_size = rows * cols
-output_size = len(ACTIONS)
-model = DQN(input_size, output_size, output_size) 
+    def qval_update(self):
+        if len(self.memory) < self.batch_size:
+            return
+        batch = self.memory.sample(self.batch_size)
+        states, actions, rewards, next_states, game_status = [], [], [], [], []
+        
 
-total_rewards = qtrain(model, maze)
+        for experience in batch:
+            state, action, reward, next_state, done = experience
+            states.append(state)
+            actions.append(action) 
+            rewards.append(reward)
+            next_states.append(next_state)
+            game_status.append(done)
+            #print(states,actions,rewards,next_states,game_status)
 
-plt.plot(total_rewards)
-plt.xlabel('Episode')
-plt.ylabel('Total Reward')
-plt.title('Training Progress')
+        states = torch.FloatTensor(states)
+        actions = torch.LongTensor(actions)
+        rewards = torch.FloatTensor(rewards)
+        next_states = torch.FloatTensor(next_states)
+        game_status = torch.FloatTensor(game_status)
+
+        q_vals = self.model(states)
+        next_q_vals = self.target_model(next_states)
+
+        curr_q = q_vals.gather(1, actions.unsqueeze(1)).squeeze(1)
+        max_next_q = next_q_vals.max(1)[0].detach()
+        target_q = rewards + (1 - game_status) * self.gamma * max_next_q
+        loss = self.loss(curr_q, target_q)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+    def reset(self): # to reset the env after every run
+        self.state = (0, 0, 'start')
+        self.total_reward = 0
+        self.steps = 0
+        self.visited = set()
+        self.maze = np.copy(maze)
+        self.target = (rows-1, cols-1)
+        self.update_target_model()
+        return self.get_state()
+    
+    def terminal(self,state):
+        row,col,status = state
+        if (row,col) == self.target: # reached target loc
+            return True,'win'
+        if self.maze[row,col] == 1.0: # on a blocked square
+            return True,'lose'
+        if self.total_reward < self.minreward or self.steps > 3*rows*cols:
+            return True,'lose'
+        return False,'not_over'
+    
+    def train(self,num_episodes):
+        rewards = []
+        for episode in range(num_episodes):
+            state = self.reset()
+            done = False
+            total_reward = 0
+            while not done: 
+                action = self.action_select(state)
+                self.update_state(action)
+                reward = self.get_reward()
+                next_state = self.get_state()
+                done, status = self.terminal(self.state)
+                self.add_to_mem(state,action,reward,next_state,done)
+                self.qval_update()
+                state = next_state
+                total_reward += reward
+                self.steps += 1
+                
+            rewards.append(total_reward)
+            self.epsilon = max(epsilon_min, self.epsilon * epsilon_decay)
+            if episode % 10 == 0:
+                print(f"ep: {episode}, total reward: {total_reward}, epsilon: {self.epsilon}")
+            if episode % 10 == 0: # update target model every 10 episodes
+                self.update_target_model()
+            
+        return rewards
+    
+    def test(self, num_episodes):
+        for episode in range(num_episodes):
+            state = self.reset()
+            done = False
+            total_reward = 0
+
+            while not done:
+                action = self.action_select(state)
+                self.update_state(action)
+                reward = self.get_reward()
+                total_reward += reward
+                _, status = self.terminal(self.state)
+                                
+                if status == 'win':
+                    print("won")
+                    break
+                if status == 'lose':
+                    print("lost")
+                    break
+                
+                state = self.get_state()
+            print(f"ep: {episode}, total reward: {total_reward}")
+
+maze_solver = Mazesolve()
+rewards = maze_solver.train(300)
+maze_solver.test(10)
+
+plt.plot(rewards)
+plt.title('Rewards')
 plt.show()
+
+def visualize_path(maze_solver, fps=3):
+    block_size = 100
+    margin = 5
+    screen_size = ((cols * block_size) + (cols + 1) * margin, (rows * block_size) + (rows + 1) * margin)
+    
+    screen = pygame.display.set_mode(screen_size)
+    pygame.display.set_caption("maze visualizer")
+
+    colors = {
+        'free': (255, 255, 255),
+        'blocked': (0, 0, 0),
+        'start': (0, 255, 0),
+        'target': (255, 0, 0),
+        'path': (0, 0, 255)
+    }
+
+    def draw_maze(state, visited):
+        screen.fill((0, 0, 0)) 
+        
+        # to draw maze
+        for r in range(rows):
+            for c in range(cols):
+                color = colors['free'] if maze[r, c] == 0.0 else colors['blocked']
+                pygame.draw.rect(screen, color, [(margin + block_size) * c + margin,(margin + block_size) * r + margin,block_size,block_size])
+
+        # for drawing visited cells
+        for v_r, v_c in visited:
+            pygame.draw.rect(screen,colors['path'],[(margin + block_size) * v_c + margin,(margin + block_size) * v_r + margin,block_size,block_size])
+        
+        # player
+        p_r, p_c, _ = state
+        pygame.draw.rect(screen, colors['start'], [(margin + block_size) * p_c + margin,(margin + block_size) * p_r + margin,block_size,block_size])
+        
+        # to draw the target
+        t_r, t_c = maze_solver.target
+        pygame.draw.rect(screen, colors['target'], [(margin + block_size) * t_c + margin, (margin + block_size) * t_r + margin, block_size, block_size])
+
+        pygame.display.flip()
+
+    clock = pygame.time.Clock()
+
+    for episode in range(1):
+        state = maze_solver.reset()
+        done = False
+        maze_solver.visited.add((0, 0))
+        while not done:
+            clock.tick(fps)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    done = True
+            
+            draw_maze(maze_solver.state, maze_solver.visited)
+            action = maze_solver.action_select(state)
+            maze_solver.update_state(action)
+            state = maze_solver.get_state()
+            done, status = maze_solver.terminal(maze_solver.state)
+            if status == 'win':
+                print("Reached the target!")
+                done = True  
+            draw_maze(maze_solver.state, maze_solver.visited)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                return
+
+visualize_path(maze_solver)
