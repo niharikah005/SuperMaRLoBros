@@ -75,7 +75,7 @@ class DQNAgent():
         self.decay = epsilon_decay
         self.batch_size = batch_size
         self.action_space = action_space
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cpu")
 
         self.policy_network = DinoCNN()
         self.target_network = DinoCNN()
@@ -92,6 +92,10 @@ class DQNAgent():
         else:
             state = torch.FloatTensor(state).unsqueeze(0).to(self.device) # adds a batch dimension
             with torch.no_grad():
+                q_values = self.policy_network(state)
+                print(f"Q-values shape: {q_values.shape}") 
+                action = q_values.argmax(1).item()
+                print(f"Action: {action}")
                 return self.policy_network(state).argmax(1).item()
             
     def optimize(self):
