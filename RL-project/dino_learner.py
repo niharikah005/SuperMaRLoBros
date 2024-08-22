@@ -159,12 +159,13 @@ class Env():
             player.jump()
         player.keep_down()
         # Move enemies
+        reward = 0
         for enemy in enemies[:]:
             # Check for collisions
             if collisions(enemy, player):
-                reward = -10  # Large negative reward for collision
+                reward += -100  # Large negative reward for collision
             else:
-                reward = 1  # Default reward for surviving
+                reward += 1  # Default reward for surviving
             remove_enemies(enemy)
 
         if len(enemies) == 0:
