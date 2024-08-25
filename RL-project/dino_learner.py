@@ -22,7 +22,7 @@ WIDTH, HEIGHT = 640, 640
 window = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 running = True
-FPS = 60
+FPS = 30
 BG = (0,0,255)
 GROUND_HEIGHT = 100
 GROUND_COLOR = (165, 42, 42)
@@ -37,21 +37,25 @@ enemy_vel = 4
 class DinoCNN(nn.Module):
     def __init__(self):
         super(DinoCNN, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=4, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=4, stride=1, padding=1)
-        self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.fc1 = nn.Linear(128*62*62, 256)
-        self.fc2 = nn.Linear(256, 2)
+        self.model = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.BatchNorm2d(32),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.BatchNorm2d(128),
+            nn.Flatten(),
+            nn.Linear(128 * 16 * 16, 256),
+            nn.ReLU(inplace=True),
+            nn.Linear(256, 2)
+        )
 
     def forward(self, x):
-        x = torch.relu(self.conv1(x))
-        x = torch.relu(self.conv2(x))
-        x = torch.relu(self.conv3(x))
-        x = torch.relu(self.maxpool(x))
-        x = x.view(x.size(0), -1)
-        x = torch.relu(self.fc1(x))
-        return self.fc2(x)
+        return self.model(x)
+
     
 class ReplayMemory():
     def __init__(self, max_size):
@@ -75,7 +79,7 @@ class DQNAgent():
         self.decay = epsilon_decay
         self.batch_size = batch_size
         self.action_space = action_space
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.policy_network = DinoCNN()
         self.target_network = DinoCNN()
@@ -86,16 +90,12 @@ class DQNAgent():
         self.steps_done = 0
 
     def select_action(self, state):
-        self.epsilon = max(self.epsilon_end, self.epsilon - 1/self.decay)
+        self.epsilon = max(self.epsilon_end, self.epsilon - 1/self.decay)   
         if random.random() < self.epsilon:
             return random.randint(0, self.action_space - 1)
         else:
             state = torch.FloatTensor(state).unsqueeze(0).to(self.device) # adds a batch dimension
             with torch.no_grad():
-                q_values = self.policy_network(state)
-                print(f"Q-values shape: {q_values.shape}") 
-                action = q_values.argmax(1).item()
-                print(f"Action: {action}")
                 return self.policy_network(state).argmax(1).item()
             
     def optimize(self):
@@ -136,7 +136,7 @@ class Env():
 
         if len(enemies) == 0:
             for i in range(wave_length):
-                min_distance = random.randint(PLAYER_WIDTH * 3, PLAYER_WIDTH * 4)
+                min_distance = random.randint(PLAYER_WIDTH * 0.4, PLAYER_WIDTH * 4)
                 enemy_x = last_enemy_x + min_distance
                 enemy = Enemy(enemy_x, HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT, enemy_vel)
                 enemies.append(enemy)
@@ -153,19 +153,33 @@ class Env():
         normalized = resized / 255.0
         return np.expand_dims(normalized, axis=0)
     
+    def calculate_reward(self, player, enemies):
+        """
+        Calculate the reward based on the player's distance to the closest enemy.
+        """
+        closest_enemy_distance = float('inf')
+        for enemy in enemies:
+            if enemy.rect.x > player.rect.x:  # Only consider enemies in front of the player
+                distance = enemy.rect.x - player.rect.x
+                if distance < closest_enemy_distance:
+                    closest_enemy_distance = distance
+
+        # Collision detection
+        for enemy in enemies:
+            if collisions(enemy, player):
+                return -100  # Large negative reward for collision
+        reward = 1 / (closest_enemy_distance + 1e-5)  # Adding a small epsilon to avoid division by zero
+        return reward
+
+    
     def step(self, action, player, enemies, done):
         # Define the game step based on the action
         if action == 1:  
             player.jump()
         player.keep_down()
         # Move enemies
-        reward = 0
+        reward = self.calculate_reward(player, enemies)
         for enemy in enemies[:]:
-            # Check for collisions
-            if collisions(enemy, player):
-                reward += -100  # Large negative reward for collision
-            else:
-                reward += 1  # Default reward for surviving
             remove_enemies(enemy)
 
         if len(enemies) == 0:
@@ -243,6 +257,8 @@ class Player:
         self.flag = False
         self.jump_cooldown = 10
         self.last_jump_time = time.time()
+        self.JUMP_FACTOR = 10
+        self.jump_flag = False
 
     def draw(self, window):
         self.flag = False
@@ -252,17 +268,21 @@ class Player:
 
     def jump(self):
         current_time = time.time()
-        if current_time - self.last_jump_time >= self.jump_cooldown:
+        if current_time - self.last_jump_time >= self.jump_cooldown and self.jump_flag:
+            print("I can jump")
             self.flag = True
             self.fall_count = 0
-            self.y_vel -= self.GRAVITY * 10
+            self.y_vel -= self.JUMP_FACTOR
             self.last_jump_time = current_time
+            self.jump_flag = False
+        else:
+            self.jump_flag = True
 
     def keep_down(self):
         if self.rect.bottom != self.ground.top:
             self.fall_count += 1
             if self.y < HEIGHT - GROUND_HEIGHT:
-                self.y_vel += 0.8 
+                self.y_vel += 1 
         elif not self.flag:
             self.y_vel = 0
 
