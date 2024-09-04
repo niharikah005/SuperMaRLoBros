@@ -147,7 +147,7 @@ def find_nearest_enemy(obstacles, agent):
         return None, None
     
 def find_passed_enemy(obstacles, agent):
-    obstacle = [obstacle for obstacle in obstacles if obstacle.rect.x < agent.rect.x]
+    obstacle = [obstacle for obstacle in obstacles if obstacle.rect.x + obstacle.rect.width < agent.rect.x]
     closest_obstacle = max(obstacle, key=lambda obs: obs.x) if obstacle else None
     if closest_obstacle:
         return True
@@ -241,10 +241,12 @@ class JumpGameEnv(gym.Env):
                 pygame.time.wait(10)
                 return self.state, np.float32(reward), terminated, truncated, {}
 
-
-        if self.agent.is_jumping and self.min_distance <= self.agent.rect.x + self.agent.rect.width + 1 and not self.jumping:
+        if (self.agent.is_jumping 
+            and self.min_distance <= self.agent.rect.x + self.agent.rect.width + 40 
+            and self.agent.rect.y + PLAYER_HEIGHT  >= HEIGHT - GROUND_HEIGHT - 20
+            and not self.jumping):
             print('success')
-            reward += 5
+            reward += 100
             self.jumping = True
         # elif self.agent.is_jumping and self.min_distance > self.agent.rect.x + self.agent.rect.width + 15 and not self.jumping:
         #     reward -= 0.01
@@ -286,7 +288,7 @@ class JumpGameEnv(gym.Env):
 
 # Instantiate the environment
 env = JumpGameEnv()
-model = DQN('MultiInputPolicy', env, learning_rate=0.001, target_update_interval=100, exploration_fraction=0.45, verbose=1)
+model = DQN('MultiInputPolicy', env, learning_rate=0.001, target_update_interval=100, exploration_fraction=0.85, verbose=1)
 model.learn(total_timesteps=3500)
 model.save('dqn_check')
 # env = JumpGameEnv()
