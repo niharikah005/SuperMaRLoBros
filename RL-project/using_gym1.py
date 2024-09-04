@@ -20,7 +20,7 @@ GROUND_COLOR = (0, 255, 0)
 obstacle_vel = 4
 wave_length = 10
 clock = pygame.time.Clock()
-FPS = 30
+FPS = 60
 
 
 # player class
@@ -65,7 +65,9 @@ class Player:
                 self.action_locked = False 
                 self.is_jumping = False
 
-        return np.array([self.y - PLAYER_Y / 45], dtype=np.float32)
+    
+    def check_landing(self):
+        return (self.rect.y + self.rect.width <= self.ground + 1)
 
     def keep_down(self):
         self.apply_gravity()
@@ -116,7 +118,7 @@ def remove_enemies(obstacles):
 
 def spawn_enemies(obstacles, last_obs_x):
     type = random.choice([0,1])
-    min_distance = random.randint(PLAYER_WIDTH * 3, PLAYER_WIDTH * 4) # can be improved, fine for now
+    min_distance = random.randint(PLAYER_WIDTH * 4, PLAYER_WIDTH * 5) # can be improved, fine for now
     obs_x = last_obs_x + min_distance
     if type == 0:
         obstacle = Enemy(obs_x, HEIGHT - GROUND_HEIGHT - PLAYER_HEIGHT, obstacle_vel)
@@ -136,14 +138,21 @@ def updates(window, player, obstacles):
     pygame.display.flip()
 
 def find_nearest_enemy(obstacles, agent):
-    obstacle = [obstacle for obstacle in obstacles if obstacle.x > agent.x]
+    obstacle = [obstacle for obstacle in obstacles if obstacle.rect.x > agent.rect.x]
     if obstacle:
-        closest_obstacle = min(obstacle, key=lambda obs: obs.x)
-        min_distance = closest_obstacle.x
+        closest_obstacle = min(obstacle, key=lambda obs: obs.rect.x)
+        min_distance = closest_obstacle.rect.x
         return min_distance, closest_obstacle
     else:
         return None, None
-
+    
+def find_passed_enemy(obstacles, agent):
+    obstacle = [obstacle for obstacle in obstacles if obstacle.rect.x < agent.rect.x]
+    closest_obstacle = max(obstacle, key=lambda obs: obs.x) if obstacle else None
+    if closest_obstacle:
+        return True
+    else:
+        return False
 
 
 class JumpGameEnv(gym.Env):
@@ -157,6 +166,8 @@ class JumpGameEnv(gym.Env):
         self.obstacles = []
         self.last_obs = WIDTH//2
         self.min_distance = 0.0
+        self.steps = 0
+        self.jumping = 0
         self.successful_jumps = 0.0
 
         pygame.display.set_caption("Jump Game")
@@ -185,6 +196,8 @@ class JumpGameEnv(gym.Env):
         self.successful_jumps = 0
         self.last_obs = WIDTH//2
         self.obstacles = []
+        self.jumping = 0
+        self.steps = 0
         info = {}
         self.min_distance = 0.0
 
@@ -202,7 +215,6 @@ class JumpGameEnv(gym.Env):
             'successful_jumps': np.array([self.successful_jumps / 100.0], dtype=np.float32),
             'just_cleared_enemy': 1 if any(self.agent.is_jumping_over(obstacle) for obstacle in self.obstacles) else 0
         }
-        
         return self.state, info
 
     def render(self, mode="render_human"):
@@ -215,18 +227,33 @@ class JumpGameEnv(gym.Env):
         truncated = False
         if action == 1 and self.agent.on_ground and not self.agent.is_jumping:
             self.agent.jump()
-            reward += 1
-        
+            self.steps += 1
+
         self.agent.keep_down()
-
         self.min_distance, obstacle = find_nearest_enemy(self.obstacles, self.agent)
-        reward += (1/ self.min_distance) * 100
 
-        if self.agent.is_jumping and self.state['nearest_enemy'] * WIDTH > PLAYER_WIDTH:
-            reward -= 10
-        if self.state['just_cleared_enemy']:
-            reward += 100
+        for obstacle in self.obstacles:
+            if collisions(obstacle, self.agent):
+                reward -= 300
+                terminated = True
+                updates(self.window, self.agent, self.obstacles)
+                pygame.display.flip()
+                pygame.time.wait(10)
+                return self.state, np.float32(reward), terminated, truncated, {}
+
+
+        if self.agent.is_jumping and self.min_distance <= self.agent.rect.x + self.agent.rect.width + 1 and not self.jumping:
+            print('success')
+            reward += 5
+            self.jumping = True
+        # elif self.agent.is_jumping and self.min_distance > self.agent.rect.x + self.agent.rect.width + 15 and not self.jumping:
+        #     reward -= 0.01
+        if find_passed_enemy(self.obstacles, self.agent) and self.agent.check_landing() and self.jumping: 
+            print('good jump')
+            reward += 30
+            self.jumping = False
             self.successful_jumps += 1
+        
         
         self.obstacles = remove_enemies(self.obstacles)
         self.obstacles, self.last_obs = spawn_enemies(self.obstacles, self.last_obs)
@@ -236,27 +263,16 @@ class JumpGameEnv(gym.Env):
             'player_y_vel': np.array([self.agent.y_vel / self.agent.jump_strength], dtype=np.float32),
             'on_ground': 1 if self.agent.on_ground else 0,
             'is_jumping': 1 if self.agent.is_jumping else 0,
-            'nearest_enemy': np.array([max(self.min_distance / WIDTH, 0.0) if self.min_distance else 1.0], dtype=np.float32),
+            'nearest_enemy': np.array([max(self.min_distance - self.agent.rect.x / WIDTH, 0.0) if self.min_distance else 1.0], dtype=np.float32),
             'nearest_enemy_height': np.array([-1.0 if obstacle and obstacle.y == (HEIGHT - GROUND_HEIGHT) else 1.0], dtype=np.float32),
             'successful_jumps': np.array([self.successful_jumps / 100.0], dtype=np.float32),
             'just_cleared_enemy': 1 if any(self.agent.is_jumping_over(obstacle) for obstacle in self.obstacles) else 0
         }
 
-        for obstacle in self.obstacles:
-            if collisions(obstacle, self.agent):
-                reward -= 200
-                terminated = True
-                updates(self.window, self.agent, self.obstacles)
-                pygame.display.flip()
-                pygame.time.wait(10)
-                return self.state, np.float32(reward), terminated, truncated, {}
-
-        reward += 0.1
-
-        done = False
-        if len(self.obstacles) == 0:
+        truncated = False
+        if self.steps >= 100:
+            reward += 100
             truncated = True
-            reward += 500
 
         updates(self.window, self.agent, self.obstacles)
         clock.tick(FPS)
@@ -270,20 +286,24 @@ class JumpGameEnv(gym.Env):
 
 # Instantiate the environment
 env = JumpGameEnv()
-model = DQN('MultiInputPolicy', env, target_update_interval=100, exploration_fraction=0.45, verbose=1)
-model.learn(total_timesteps=5000)
+model = DQN('MultiInputPolicy', env, learning_rate=0.001, target_update_interval=100, exploration_fraction=0.45, verbose=1)
+model.learn(total_timesteps=3500)
 model.save('dqn_check')
-env = JumpGameEnv()
-model.load('dqn_check', env=env)
+# env = JumpGameEnv()
+# model.load('dqn_check', env=env)
 # # Test the environment
 obs, info = env.reset()
 for _ in range(5):
     terminated = False
     truncated = False
+    total_reward = 0
     while not terminated and not truncated:
         action, _ = model.predict(obs)  # Randomly sample an action
         obs, reward, terminated, truncated, info = env.step(action)
+        total_reward += reward
+    print(total_reward)
     obs, info = env.reset()
 
 env.close()
 
+# make the checks for each jump, not each frame, and change some of the rewards
