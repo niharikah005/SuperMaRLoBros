@@ -1,3 +1,4 @@
+import cv2
 import pygame
 import random
 import numpy as np
@@ -12,7 +13,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 
 #constants
 SCREEN_WIDTH, SCREEN_HEIGHT = 480, 480
-REGION_SIZE = 100
+REGION_SIZE = 175
 GROUND_HEIGHT = 50
 GROUND_COLOR = (0,255,0)
 PLAYER_WIDTH = 40
@@ -35,7 +36,7 @@ class Agent:
         self.width = PLAYER_WIDTH
         self.height = PLAYER_HEIGHT
         self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
-        self.jump_strength = 15
+        self.jump_strength = 20
         self.give_gravity = 2
         self.y_vel = 0
         self.in_air = False
@@ -127,7 +128,7 @@ class JumpEnv(gym.Env):
         self.terminated = False
         self._steps = 0
         self.action_space = spaces.Discrete(2)
-        self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(REGION_SIZE*REGION_SIZE,), dtype=np.uint8)
+        self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(REGION_SIZE*REGION_SIZE,), dtype=np.float32)
 
     def step(self, action):
         self.truncated = False
@@ -140,19 +141,19 @@ class JumpEnv(gym.Env):
 
         for _obstacle in self._obstacle_list:
             _obstacle.move()
-        obs = self.get_obs
+        obs = self.get_obs()
         _min_distance = nearest_enemy(self._obstacle_list, self._agent)
         # rewards:
         if check_for_collision(self._obstacle_list, self._agent):
             print('collision')
-            reward -= 50
+            reward -= 150
             self.terminated = True
             return obs, reward, self.terminated, self.truncated, {}
         
-        if self._agent.in_air and _min_distance >= PLAYER_WIDTH:
+        if self._agent.in_air and _min_distance >= 30:
             reward -= 2
         else:
-            reward += 1
+            reward += 1   
 
         # termination:
         if self._steps >= 300:
@@ -175,20 +176,31 @@ class JumpEnv(gym.Env):
     
     def get_obs(self):
         # Define the region around the agent
-        x = max(0, self._agent.x - REGION_SIZE // 2)
-        y = max(0, self._agent.y - REGION_SIZE // 2)
+        forward_offset = REGION_SIZE // 2
+        x = max(0, self._agent.x + self._agent.rect.width*2 - forward_offset)
+        y = SCREEN_HEIGHT - GROUND_HEIGHT - REGION_SIZE
         region = pygame.surfarray.array3d(self._screen).transpose(1, 0, 2)
-        region = region[y:y+REGION_SIZE, x:x+REGION_SIZE, :]
+        region = region[y:y+REGION_SIZE, x:x+REGION_SIZE, :] # takes a region_size * region_size part into consideration
         grayscale_region = np.mean(region, axis=2).astype(np.float32)  # Use float32 for normalization
         normalized_region = grayscale_region / 255.0
         flattened_obs = normalized_region.flatten()
+
+        # Display what the agent is seeing using OpenCV
+        cv2.imshow("Agent's View", cv2.resize(normalized_region, (200, 200)))  # Resize for better visualization
+        cv2.waitKey(1)  # To keep the OpenCV window open
         
         return flattened_obs
     def close(self):
         pygame.quit()
+        cv2.destroyAllWindows()
 
-
+log_dir = './logs/'
 env = JumpEnv()
+# check_env(env)
+model = PPO('MlpPolicy', env, tensorboard_log=log_dir, verbose=1)
+# model.learn(total_timesteps=7500)
+# model.save('using_PPO')
+model.load('using_PPO')
 obs, _ = env.reset()
 for _ in range(5):
     truncated = False
@@ -198,7 +210,7 @@ for _ in range(5):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-        action = env.action_space.sample()
+        action, _ = model.predict(obs)
         observation, reward, terminated, truncated, _ = env.step(action)
         total_reward += reward
         if truncated or terminated:
