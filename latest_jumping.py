@@ -3,9 +3,10 @@ import gymnasium as gym
 from gymnasium import spaces
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold
 from stable_baselines3 import DQN
 import pygame
-import random
+import random, os
 
 BG = (135, 206, 250)  
 ROAD_COLOR = (128, 128, 128)  
@@ -160,7 +161,6 @@ class JumpGameEnv(gym.Env):
         pygame.display.set_caption("Vidhi's Jump Game")
         self.clock = pygame.time.Clock().tick(FPS)
 
-        
         self.action_space = gym.spaces.Discrete(2)
         self.observation_space = gym.spaces.Dict({
             'player_y': spaces.Box(low=0.0, high=1.0, shape=(1,), dtype=np.float32),
@@ -217,25 +217,32 @@ class JumpGameEnv(gym.Env):
         reward = 0
         terminated = False
         truncated = False
+        
+        # if action is to jump and if the conditions are right
         if action == 1 and self.agent.on_ground and not self.agent.is_jumping:
             self.agent.jump()
             reward += 1
-
+        
         self.agent.keep_down()
-
+        
+        #nearest enemy and update reward
         self.min_distance, obstacle = find_nearest_enemy(self.obstacles, self.agent)
         reward += (1 / self.min_distance) * 100 if self.min_distance else 0
-
+        
+        # Penalize if jumping over an enemy too far
         if self.agent.is_jumping and self.state['nearest_enemy'] * WIDTH > PLAYER_WIDTH:
             reward -= 10
+        
+        # Reward for clearing an enemy (succesfull jump)
         if self.state['just_cleared_enemy']:
             reward += 100
             self.successful_jumps += 1
-            self.score += 10  # Increment score for each successful jump
+            self.score += 10  
 
+        #remove enemy when out of screen and spwan new one
         self.obstacles = remove_enemies(self.obstacles)
         self.obstacles, self.last_obs = spawn_enemies(self.obstacles, self.last_obs)
-
+        
         self.state = {
             'player_y': np.array([self.agent.y / HEIGHT], dtype=np.float32),
             'player_y_vel': np.array([self.agent.y_vel / self.agent.jump_strength], dtype=np.float32),
@@ -256,6 +263,7 @@ class JumpGameEnv(gym.Env):
                 pygame.time.wait(10)
                 return self.state, np.float32(reward), terminated, truncated, {}
 
+        # Reward for surviving, penalty for jumping too far
         reward += 0.1
         self.steps += 1
 
@@ -265,7 +273,7 @@ class JumpGameEnv(gym.Env):
             reward += 500
 
         self.render()
-        clock.tick(FPS)
+        clock.tick(FPS*4)
         info = {}
         
         print(f"Step: {self.steps}, Reward: {reward}, Score: {self.score}")  # Print reward and score for each step
@@ -276,12 +284,19 @@ class JumpGameEnv(gym.Env):
         pygame.quit()
 
 env = JumpGameEnv()
-model = DQN('MultiInputPolicy', env, target_update_interval=100, exploration_fraction=0.45, verbose=1)
+
+log_dir = "logs/"
+os.makedirs(log_dir, exist_ok=True)
+
+model = DQN('MultiInputPolicy', env, target_update_interval=100, exploration_fraction=0.45, verbose=1, tensorboard_log=log_dir)
+
+eval_callback = EvalCallback(env, best_model_save_path='logs/', log_path='logs/', eval_freq=1000, deterministic=True, render=False)
+
 model.learn(total_timesteps=65000)
 model.save('dqn_check')
+
 env = JumpGameEnv()
 model.load('dqn_check', env=env)
-
 
 obs, info = env.reset()
 for _ in range(5):
