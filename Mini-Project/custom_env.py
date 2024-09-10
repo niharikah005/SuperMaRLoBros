@@ -1,14 +1,17 @@
-import gym
-from gym import spaces
+import gymnasium 
+from gymnasium import spaces
 import numpy as np
 import pygame
 import random
 import os
 from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
-# from stable_baselines3.common.env_checker import check_env
+from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold
+from stable_baselines3.common.env_checker import check_env
 
-class BoulderHole(gym.Env):
+FPS = 30
+
+class BoulderHole(gymnasium.Env):
     def __init__(self):
         super(BoulderHole, self).__init__()
         
@@ -42,10 +45,11 @@ class BoulderHole(gym.Env):
 
         self.points = []
         self.score = 0
-
+        self.count = 0 # number of obstacles successfully crossed
+ 
         self.safe_distance = 100
 
-        self.observation_space = gym.spaces.Dict({
+        self.observation_space = gymnasium.spaces.Dict({
             'obstacle_distance': spaces.Box(low=0, high=self.width, shape=(1,), dtype=np.float32),
             'obstacle_type': spaces.Discrete(2),  # 0 is boulder, 1 is hole
             'y_dist_to_obstacle': spaces.Box(low=-self.height, high=self.height, shape=(1,), dtype=np.float32),
@@ -53,14 +57,17 @@ class BoulderHole(gym.Env):
             'player_height': spaces.Box(low=0, high=self.height, shape=(1,), dtype=np.float32),
             'time_elapsed': spaces.Box(low=0, high=1000, shape=(1,), dtype=np.float32),
             'score': spaces.Box(low=0, high=1000, shape=(1,), dtype=np.float32),
-            'boulder_size': spaces.Box(low=1, high=self.obstacle_height, shape=(1,), dtype=np.float32),
+            'boulder_size': spaces.Box(low=0, high=self.obstacle_height, shape=(1,), dtype=np.float32),
         })
 
         self.action_space = spaces.Discrete(2)
         
         self.reset()
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        if seed is not None:
+            np.random.seed(seed)
+
         self.player_y = self.floor_y - self.player_size
         self.player_velocity = 0
         self.is_jumping = False
@@ -68,14 +75,18 @@ class BoulderHole(gym.Env):
         self.points = []
         self.score = 0
         self.spawn_timer = 0
-        
+        self.count = 0
+
         observation = self._get_observation()
-        return observation
+        info = {} # extra info, not needed
+        return observation, info
 
     def step(self, action):
-        reward = 0.05  # small reward for staying alive
-        done = False
+        reward = 0.1  # small reward for staying alive
+        terminated = False
+        truncated = False
 
+        # for jumping
         if action == 1 and not self.is_jumping:
             self.player_velocity = self.jump_power
             self.is_jumping = True
@@ -91,11 +102,13 @@ class BoulderHole(gym.Env):
             next_obstacle = self.obstacles[0]
             distance_to_obstacle = next_obstacle['x'] - self.player_x
 
-            if distance_to_obstacle > 200 and action == 1:
-                reward -= 0.1  # penalty for jumping too early
+            # reward for being on ground close to obstacle
+            if 0 < distance_to_obstacle <= 100 and not self.is_jumping:
+                reward += 7 
 
-            if distance_to_obstacle > 200 and action == 0 and not self.is_jumping:
-                reward += 0.05  # reward for staying grounded
+            # penalty for jumping too far from obstacle
+            if distance_to_obstacle > 100 and action == 1:
+                reward -= 10  
 
         self.spawn_timer += 1
         if self.spawn_timer > random.randint(30, 70):
@@ -104,18 +117,23 @@ class BoulderHole(gym.Env):
                 self._spawn_points()
             self.spawn_timer = 0
 
-        obstacle_reward, done = self._move_obstacles()
+        obstacle_reward, terminated = self._move_obstacles()
         reward += obstacle_reward
 
         coin_reward = self._move_points()
         reward += coin_reward
 
+        # 30 obstacles crossed and 15 points collected
+        if self.score >= 15 and self.count >= 30:
+            truncated = True
+            print("insane performance ong")
+
         observation = self._get_observation()
         info = {}
 
-        # print(reward)
+        self.render()
+        return observation, reward, terminated, truncated, info
 
-        return observation, reward, done, info
 
     def _get_observation(self):
         time_elapsed = pygame.time.get_ticks() / 1000  
@@ -140,7 +158,7 @@ class BoulderHole(gym.Env):
             'player_height': np.array([self.player_y], dtype=np.float32),
             'time_elapsed': np.array([time_elapsed], dtype=np.float32),
             'score': np.array([self.score], dtype=np.float32),
-            'boulder_size': np.array([obstacle_size if obstacle_type == 0 else 0], dtype=np.float32),
+            'boulder_size': np.array([obstacle_size], dtype=np.float32),
         }
 
     def _spawn_obstacle(self):
@@ -161,22 +179,30 @@ class BoulderHole(gym.Env):
 
     def _move_obstacles(self):
         reward = 0
-        done = False
+        terminated = False
         for obstacle in self.obstacles[:]:
             obstacle['x'] -= self.obstacle_speed
-            
+
             if obstacle['x'] < -self.obstacle_width:
-                self.obstacles.remove(obstacle)
+                self.obstacles.remove(obstacle) 
             else:
-                if (self.player_x + self.player_size > obstacle['x'] and self.player_x < obstacle['x'] + self.obstacle_width and self.player_y + self.player_size >= obstacle['y']):
-                    done = True  
-                    reward -= 10
+                self.distance_to_obstacle = obstacle['x'] - self.player_x
 
-                elif (self.player_x > obstacle['x'] + self.obstacle_width and self.is_jumping):  
-                    reward += 2  
-                    self.obstacles.remove(obstacle) 
+                # successful jump over the obstacle
+                if self.player_x > obstacle['x'] + self.obstacle_width and self.is_jumping:
+                    reward += 30
+                    self.obstacles.remove(obstacle)
+                    self.count += 1
+                    print("jumped over obstacle")
 
-        return reward, done
+                # collision penalty
+                elif (self.player_x + self.player_size > obstacle['x'] and self.player_x < obstacle['x'] + self.obstacle_width and self.player_y + self.player_size >= obstacle['y']):
+                    terminated = True 
+                    reward -= 80
+                    print("termination due to collision")
+
+        return reward, terminated
+
 
     def _move_points(self):
         reward = 0
@@ -188,7 +214,7 @@ class BoulderHole(gym.Env):
                   self.player_y + self.player_size >= point['y']):
                 self.points.remove(point)
                 self.score += 1
-                reward += 2  
+                reward += 5 # reward for collecting points 
 
         return reward
 
@@ -196,7 +222,6 @@ class BoulderHole(gym.Env):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.close()
-                done = True
                 break
 
         self.screen.fill(self.WHITE)
@@ -215,7 +240,7 @@ class BoulderHole(gym.Env):
             pygame.draw.circle(self.screen, self.GREEN, (point['x'], point['y']), 10)
 
         pygame.display.flip()
-        self.clock.tick(30)
+        self.clock.tick(FPS*4)
 
     def close(self):
         pygame.quit()
@@ -225,35 +250,47 @@ class BoulderHole(gym.Env):
 
 # # check_env(env)
 
-# done = False
+# terminated = False
 # for i in range(10):
-#     while not done:
+#     while not terminated:
 #         action = env.action_space.sample()
-#         obs, reward, done, info = env.step(action)
+#         obs, reward, terminated, info = env.step(action)
 #         env.render()
     
 #     obs = env.reset()
-#     done = False
-
-
+#     terminated = False
 
 # env.close()
 
-
 env = BoulderHole()
 obs = env.reset()
-model = PPO('MultiInputPolicy', env, verbose=1)
-model.learn(total_timesteps=100000)
-model.save('dqn_check')
-# model.load('dqn_check', env=env)
-# #Test the environment
-obs = env.reset()
+
+log_dir = "logs/"
+os.makedirs(log_dir, exist_ok=True)
+
+model = PPO('MultiInputPolicy', env, verbose=1, tensorboard_log=log_dir)
+
+eval_callback = EvalCallback(env, best_model_save_path='logs/', log_path='logs/', eval_freq=1000, deterministic=True, render=False)
+
+if check_env(env): print("env works omg")
+
+model = model.learn(total_timesteps=40000, callback=eval_callback)
+
+model.save('model40k')
+
+# model = model.load('model40k', env=env)
+
+obs, info = env.reset()
 for _ in range(10):
-    done = False
-    while not done:
-        action, _ = model.predict(obs)  
-        obs, reward, done, info = env.step(action)
+    terminated = False
+    truncated = False
+    total_reward = 0
+    while not terminated and not truncated:
+        action, _ = model.predict(obs)
+        obs, reward, terminated, truncated, info = env.step(action)
+        total_reward += reward
         env.render()
-    obs = env.reset()
+    print(total_reward)
+    obs, info = env.reset()
 
 env.close()
