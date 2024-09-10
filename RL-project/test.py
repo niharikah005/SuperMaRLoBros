@@ -1,3 +1,4 @@
+import cv2
 import pygame
 import random
 import numpy as np
@@ -17,7 +18,8 @@ GROUND_HEIGHT = 50
 GROUND_COLOR = (0,255,0)
 PLAYER_WIDTH = 40
 PLAYER_HEIGHT = 40
-OBSTACLE_COLOR = (255,0,0)
+BOULDER_COLOR = (255,0,0)
+HOLE_COLOR = (0,0,0)
 PLAYER_COLOR = (0,0,255)
 OBSTACLE_HEIGHT = 35
 OBSTACLE_WIDTH = 20
@@ -61,16 +63,17 @@ class Agent:
 
 # obstacle class:
 class Obstacle:
-    def __init__(self, x, y):
+    def __init__(self, x, y, color):
         self.x = x
         self.y = y
+        self.color = color
         self.rect = pygame.Rect(self.x, self.y, OBSTACLE_WIDTH, OBSTACLE_HEIGHT)
     def move(self):
         self.x -= OBSTACLE_VELOCITY
     def draw(self,window):
         self.rect.x = self.x
         self.rect.y = self.y
-        pygame.draw.rect(window, OBSTACLE_COLOR, self.rect)
+        pygame.draw.rect(window, self.color, self.rect)
 
 
 # ground class:
@@ -89,9 +92,9 @@ def spawn_obstacles():
     for _ in range(WAVELENGTH):
         _obstacle_type = random.choice([0,1])
         if _obstacle_type == 0:
-            _obstacle = Obstacle(_last_obstacle_x, SCREEN_HEIGHT - GROUND_HEIGHT - OBSTACLE_HEIGHT)
+            _obstacle = Obstacle(_last_obstacle_x, SCREEN_HEIGHT - GROUND_HEIGHT - OBSTACLE_HEIGHT, BOULDER_COLOR)
         elif _obstacle_type == 1:
-            _obstacle = Obstacle(_last_obstacle_x, SCREEN_HEIGHT - GROUND_HEIGHT)
+            _obstacle = Obstacle(_last_obstacle_x, SCREEN_HEIGHT - GROUND_HEIGHT, HOLE_COLOR)
         _obstacle_list.append(_obstacle)
         _last_obstacle_x +=  random.randint(PLAYER_WIDTH*3, PLAYER_WIDTH*4)
     return _obstacle_list
@@ -135,7 +138,7 @@ class JumpEnv(gym.Env):
         self.terminated = False
         self._steps = 0
         self.action_space = spaces.Discrete(2)
-        self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(REGION_SIZE*REGION_SIZE,), dtype=np.float32)
+        self.observation_space = spaces.Box(low=0.0, high=1.0, shape=((REGION_SIZE+GROUND_HEIGHT)*REGION_SIZE,), dtype=np.float32)
 
     def step(self, action):
         self.truncated = False
@@ -187,37 +190,40 @@ class JumpEnv(gym.Env):
         x = max(0, self._agent.x + self._agent.rect.width*2 - forward_offset)
         y = SCREEN_HEIGHT - GROUND_HEIGHT - REGION_SIZE
         region = pygame.surfarray.array3d(self._screen).transpose(1, 0, 2)
-        region = region[y:y+REGION_SIZE, x:x+REGION_SIZE, :] # takes a region_size * region_size part into consideration
+        region = region[y:y+REGION_SIZE+GROUND_HEIGHT, x:x+REGION_SIZE, :] # takes a region_size * region_size part into consideration
         grayscale_region = np.mean(region, axis=2).astype(np.float32)  # Use float32 for normalization
         normalized_region = grayscale_region / 255.0
         flattened_obs = normalized_region.flatten()
         
+        cv2.imshow('Agent view', normalized_region)
+        cv2.waitKey(1)
         return flattened_obs
     def close(self):
         pygame.quit()
+        cv2.destroyAllWindows()
 
 log_dir = './logs/'
 env = JumpEnv()
-# check_env(env)
+check_env(env)
 # model = PPO('MlpPolicy', env, tensorboard_log=log_dir, verbose=1)
 # model.learn(total_timesteps=40000)
 # model.save('using_PPO')
 # model.load('using_PPO')
-obs, _ = env.reset()
-for _ in range(5):
-    truncated = False
-    terminated = False
-    total_reward = 0
-    while not truncated and not terminated:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-        action = env.action_space.sample()
-        observation, reward, terminated, truncated, _ = env.step(action)
-        total_reward += reward
-        if truncated or terminated:
-            print(total_reward)
-            print('terminated')
-            obs, _ = env.reset()
+# obs, _ = env.reset()
+# for _ in range(5):
+#     truncated = False
+#     terminated = False
+#     total_reward = 0
+#     while not truncated and not terminated:
+#         for event in pygame.event.get():
+#             if event.type == pygame.QUIT:
+#                 pygame.quit()
+#         action = env.action_space.sample()
+#         observation, reward, terminated, truncated, _ = env.step(action)
+#         total_reward += reward
+#         if truncated or terminated:
+#             print(total_reward)
+#             print('terminated')
+#             obs, _ = env.reset()
 env.close()
     
