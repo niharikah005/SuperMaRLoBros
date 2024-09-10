@@ -118,13 +118,13 @@ def nearest_enemy(obstacle_list, agent):
 
 
 def update_screen(window, agent, obstacle_list, ground):
-    window.fill((0,0,0))
+    window.fill((255,255,255))
     ground.draw(window)
     agent.draw(window)
     for _obstacle in obstacle_list:
         _obstacle.draw(window)
     pygame.display.flip()
-    # clock.tick(FPS)
+    clock.tick(FPS)
 
 
 # custom env:
@@ -190,8 +190,8 @@ class JumpEnv(gym.Env):
         x = max(0, self._agent.x + self._agent.rect.width*2 - forward_offset)
         y = SCREEN_HEIGHT - GROUND_HEIGHT - REGION_SIZE
         region = pygame.surfarray.array3d(self._screen).transpose(1, 0, 2)
-        region = region[y:y+REGION_SIZE+GROUND_HEIGHT, x:x+REGION_SIZE, :] # takes a region_size * region_size part into consideration
-        grayscale_region = np.mean(region, axis=2).astype(np.float32)  # Use float32 for normalization
+        region = region[y:y+REGION_SIZE+GROUND_HEIGHT, x:x+REGION_SIZE + forward_offset, :] 
+        grayscale_region = cv2.cvtColor(region, cv2.COLOR_RGB2GRAY).astype(np.float32)  # Use float32 for normalization
         normalized_region = grayscale_region / 255.0
         flattened_obs = normalized_region.flatten()
         
@@ -205,25 +205,25 @@ class JumpEnv(gym.Env):
 log_dir = './logs/'
 env = JumpEnv()
 # check_env(env)
-model = PPO('MlpPolicy', env, tensorboard_log=log_dir, verbose=1)
-model.learn(total_timesteps=40000)
-model.save('using_PPO_new')
+# model = PPO('MlpPolicy', env, tensorboard_log=log_dir, verbose=1)
+# model.learn(total_timesteps=10000)
+# model.save('using_PPO_and_cv2')
 # model.load('using_PPO')
-# obs, _ = env.reset()
-# for _ in range(5):
-#     truncated = False
-#     terminated = False
-#     total_reward = 0
-#     while not truncated and not terminated:
-#         for event in pygame.event.get():
-#             if event.type == pygame.QUIT:
-#                 pygame.quit()
-#         action = env.action_space.sample()
-#         observation, reward, terminated, truncated, _ = env.step(action)
-#         total_reward += reward
-#         if truncated or terminated:
-#             print(total_reward)
-#             print('terminated')
-#             obs, _ = env.reset()
+obs, _ = env.reset()
+for _ in range(5):
+    truncated = False
+    terminated = False
+    total_reward = 0
+    while not truncated and not terminated:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+        action = env.action_space.sample()
+        observation, reward, terminated, truncated, _ = env.step(action)
+        total_reward += reward
+        if truncated or terminated:
+            print(total_reward)
+            print('terminated')
+            obs, _ = env.reset()
 env.close()
     
