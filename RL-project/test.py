@@ -1,4 +1,3 @@
-import cv2
 import pygame
 import random
 import numpy as np
@@ -62,13 +61,15 @@ class Agent:
 
 # obstacle class:
 class Obstacle:
-    def __init__(self, x):
+    def __init__(self, x, y):
         self.x = x
-        self.rect = pygame.Rect(self.x, SCREEN_HEIGHT - GROUND_HEIGHT - OBSTACLE_HEIGHT, OBSTACLE_WIDTH, OBSTACLE_HEIGHT)
+        self.y = y
+        self.rect = pygame.Rect(self.x, self.y, OBSTACLE_WIDTH, OBSTACLE_HEIGHT)
     def move(self):
         self.x -= OBSTACLE_VELOCITY
     def draw(self,window):
         self.rect.x = self.x
+        self.rect.y = self.y
         pygame.draw.rect(window, OBSTACLE_COLOR, self.rect)
 
 
@@ -86,17 +87,23 @@ def spawn_obstacles():
     _last_obstacle_x = SCREEN_WIDTH
     _obstacle_list = []
     for _ in range(WAVELENGTH):
-       _obstacle = Obstacle(_last_obstacle_x)
-       _obstacle_list.append(_obstacle)
-       _last_obstacle_x +=  random.randint(PLAYER_WIDTH*3, PLAYER_WIDTH*4)
+        _obstacle_type = random.choice([0,1])
+        if _obstacle_type == 0:
+            _obstacle = Obstacle(_last_obstacle_x, SCREEN_HEIGHT - GROUND_HEIGHT - OBSTACLE_HEIGHT)
+        elif _obstacle_type == 1:
+            _obstacle = Obstacle(_last_obstacle_x, SCREEN_HEIGHT - GROUND_HEIGHT)
+        _obstacle_list.append(_obstacle)
+        _last_obstacle_x +=  random.randint(PLAYER_WIDTH*3, PLAYER_WIDTH*4)
     return _obstacle_list
 
 
-def check_for_collision(obstacle_list, agent):
-    for _obstacle in obstacle_list:
-        if agent.rect.colliderect(_obstacle.rect):
-            return True
-    return False
+def check_for_collision(_obstacle, agent):
+    if _obstacle.y == SCREEN_HEIGHT - GROUND_HEIGHT - OBSTACLE_HEIGHT:
+        return agent.rect.colliderect(_obstacle.rect)
+    elif _obstacle.y == SCREEN_HEIGHT - GROUND_HEIGHT:
+        return (agent.rect.y + agent.rect.height == _obstacle.y
+                and _obstacle.rect.x < agent.rect.x + agent.rect.width
+                and agent.rect.x < _obstacle.rect.x + _obstacle.rect.width)
 
 
 def nearest_enemy(obstacle_list, agent):
@@ -144,16 +151,16 @@ class JumpEnv(gym.Env):
         obs = self.get_obs()
         _min_distance = nearest_enemy(self._obstacle_list, self._agent)
         # rewards:
-        if check_for_collision(self._obstacle_list, self._agent):
-            print('collision')
-            reward -= 150
-            self.terminated = True
-            return obs, reward, self.terminated, self.truncated, {}
+        for _obstacle in self._obstacle_list:
+            if check_for_collision(_obstacle, self._agent):
+                reward -= 150
+                self.terminated = True
+                return obs, reward, self.terminated, self.truncated, {}
         
         if self._agent.in_air and _min_distance >= 30:
-            reward -= 2
+            reward -= 1
         else:
-            reward += 1   
+            reward += 2   
 
         # termination:
         if self._steps >= 300:
@@ -184,23 +191,18 @@ class JumpEnv(gym.Env):
         grayscale_region = np.mean(region, axis=2).astype(np.float32)  # Use float32 for normalization
         normalized_region = grayscale_region / 255.0
         flattened_obs = normalized_region.flatten()
-
-        # Display what the agent is seeing using OpenCV
-        cv2.imshow("Agent's View", cv2.resize(normalized_region, (200, 200)))  # Resize for better visualization
-        cv2.waitKey(1)  # To keep the OpenCV window open
         
         return flattened_obs
     def close(self):
         pygame.quit()
-        cv2.destroyAllWindows()
 
 log_dir = './logs/'
 env = JumpEnv()
 # check_env(env)
-model = PPO('MlpPolicy', env, tensorboard_log=log_dir, verbose=1)
-# model.learn(total_timesteps=7500)
+# model = PPO('MlpPolicy', env, tensorboard_log=log_dir, verbose=1)
+# model.learn(total_timesteps=40000)
 # model.save('using_PPO')
-model.load('using_PPO')
+# model.load('using_PPO')
 obs, _ = env.reset()
 for _ in range(5):
     truncated = False
@@ -210,7 +212,7 @@ for _ in range(5):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-        action, _ = model.predict(obs)
+        action = env.action_space.sample()
         observation, reward, terminated, truncated, _ = env.step(action)
         total_reward += reward
         if truncated or terminated:
