@@ -124,7 +124,7 @@ def update_screen(window, agent, obstacle_list, ground):
     for _obstacle in obstacle_list:
         _obstacle.draw(window)
     pygame.display.flip()
-    clock.tick(FPS)
+    # clock.tick(FPS)
 
 
 # custom env:
@@ -166,7 +166,7 @@ class JumpEnv(gym.Env):
             reward += 2   
 
         # termination:
-        if self._steps >= 300:
+        if self._steps >= 500:
             reward += 100
             self.truncated = True
         
@@ -204,10 +204,10 @@ class JumpEnv(gym.Env):
 
 log_dir = './logs/'
 env = JumpEnv()
-check_env(env)
-# model = PPO('MlpPolicy', env, tensorboard_log=log_dir, verbose=1)
-# model.learn(total_timesteps=40000)
-# model.save('using_PPO')
+# check_env(env)
+model = PPO('MlpPolicy', env, tensorboard_log=log_dir, verbose=1)
+model.learn(total_timesteps=40000)
+model.save('using_PPO_new')
 # model.load('using_PPO')
 # obs, _ = env.reset()
 # for _ in range(5):
