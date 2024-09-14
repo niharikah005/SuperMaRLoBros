@@ -27,6 +27,8 @@ OBSTACLE_VELOCITY = 5
 WAVELENGTH = 10
 FPS = 30
 clock = pygame.time.Clock()
+forward_offset = REGION_SIZE // 2
+
 
 
 # player class:
@@ -124,7 +126,7 @@ def update_screen(window, agent, obstacle_list, ground):
     for _obstacle in obstacle_list:
         _obstacle.draw(window)
     pygame.display.flip()
-    clock.tick(FPS)
+    # clock.tick(FPS)
 
 
 # custom env:
@@ -138,7 +140,7 @@ class JumpEnv(gym.Env):
         self.terminated = False
         self._steps = 0
         self.action_space = spaces.Discrete(2)
-        self.observation_space = spaces.Box(low=0.0, high=1.0, shape=((REGION_SIZE+GROUND_HEIGHT)*REGION_SIZE,), dtype=np.float32)
+        self.observation_space = spaces.Box(low=0.0, high=1.0, shape=((REGION_SIZE+GROUND_HEIGHT), (REGION_SIZE+forward_offset),3), dtype=np.float32)
 
     def step(self, action):
         self.truncated = False
@@ -186,18 +188,16 @@ class JumpEnv(gym.Env):
     
     def get_obs(self):
         # Define the region around the agent
-        forward_offset = REGION_SIZE // 2
         x = max(0, self._agent.x + self._agent.rect.width*2 - forward_offset)
         y = SCREEN_HEIGHT - GROUND_HEIGHT - REGION_SIZE
         region = pygame.surfarray.array3d(self._screen).transpose(1, 0, 2)
-        region = region[y:y+REGION_SIZE+GROUND_HEIGHT, x:x+REGION_SIZE + forward_offset, :] 
-        grayscale_region = cv2.cvtColor(region, cv2.COLOR_RGB2GRAY).astype(np.float32)  # Use float32 for normalization
-        normalized_region = grayscale_region / 255.0
-        flattened_obs = normalized_region.flatten()
+        region = region[y:y+REGION_SIZE+GROUND_HEIGHT, x:x+REGION_SIZE + forward_offset, :].astype(np.float32) 
+        normalized_region = region / 255.0
+        # flattened_obs = normalized_region.flatten()
         
         cv2.imshow('Agent view', normalized_region)
         cv2.waitKey(1)
-        return flattened_obs
+        return normalized_region
     def close(self):
         pygame.quit()
         cv2.destroyAllWindows()
@@ -205,25 +205,25 @@ class JumpEnv(gym.Env):
 log_dir = './logs/'
 env = JumpEnv()
 # check_env(env)
-# model = PPO('MlpPolicy', env, tensorboard_log=log_dir, verbose=1)
-# model.learn(total_timesteps=10000)
-# model.save('using_PPO_and_cv2')
+model = PPO('MlpPolicy', env, ent_coef=0.01, tensorboard_log=log_dir, verbose=1)
+model.learn(total_timesteps=10000)
+model.save('using_PPO_and_CNN')
 # model.load('using_PPO')
-obs, _ = env.reset()
-for _ in range(5):
-    truncated = False
-    terminated = False
-    total_reward = 0
-    while not truncated and not terminated:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-        action = env.action_space.sample()
-        observation, reward, terminated, truncated, _ = env.step(action)
-        total_reward += reward
-        if truncated or terminated:
-            print(total_reward)
-            print('terminated')
-            obs, _ = env.reset()
+# obs, _ = env.reset()
+# for _ in range(5):
+#     truncated = False
+#     terminated = False
+#     total_reward = 0
+#     while not truncated and not terminated:
+#         for event in pygame.event.get():
+#             if event.type == pygame.QUIT:
+#                 pygame.quit()
+#         action = env.action_space.sample()
+#         observation, reward, terminated, truncated, _ = env.step(action)
+#         total_reward += reward
+#         if truncated or terminated:
+#             print(total_reward)
+#             print('terminated')
+#             obs, _ = env.reset()
 env.close()
     
