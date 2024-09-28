@@ -25,6 +25,8 @@ FPS = 60
 PLAYER_VEL = 5
 REGION_SIZE = 146
 clock = pygame.time.Clock()
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("platformer game")
 
 
 # file loading utils
@@ -141,6 +143,7 @@ class Player(pygame.sprite.Sprite): # self.sprite come from here
         self.jump_count = 0
         self.count = 0
         self.hit = False
+        self.sprite = self.SPRITES["idle_left"][0] 
 
     def jump(self):
         self.y_vel = -self.GRAVITY * 8
@@ -267,12 +270,12 @@ class Fire(Object):
 
 
 # SB3 environment
-class Pls_learn():
+class Pls_learn(gym.Env):
     def __init__(self):
         self._screen =  pygame.display.set_mode((WIDTH,HEIGHT))
-        self._agent = Player(100,HEIGHT - 50,50,50)
         self._block_size = 96
         self._trap_size = 48
+        self._agent = Player(146,HEIGHT - self._block_size - 100,50,50)
         self._x_offset = 0
         self._steps = 0
         self.truncated = False
@@ -280,7 +283,6 @@ class Pls_learn():
         self._background = None
         self._bg_image = None
         self._x_offset = 0
-        self._screen_scroll_width = 50
         self._epsilon = 1
         self._screen_scroll_width = 50
         # -WIDTH // block_size will put it to # the left of the screen width and WIDTH * 2// block_size will put it to the right full width
@@ -298,7 +300,7 @@ class Pls_learn():
         self.terminated = False
         self.truncated = False
         self._steps = 0
-        self._agent = Player(100,HEIGHT - 50,50,50)
+        self._agent = Player(146,HEIGHT - self._block_size - 100,50,50)
 
         self._background, self._bg_image = get_background("Blue.png") 
         return self.get_obs(), {}
@@ -308,13 +310,14 @@ class Pls_learn():
         self.terminated = False
         reward = 0
         movement(self._agent, self._objects, action)
+        self._agent.loop(FPS)
         if ((self._agent.rect.right - self._x_offset >= WIDTH - self._screen_scroll_width and self._agent.x_vel > 0) 
             or (self._agent.rect.left - self._x_offset <= self._screen_scroll_width and self._agent.x_vel < 0)):
             self._x_offset += self._agent.x_vel
         self._steps += 1
 
         obs = self.get_obs()
-        reward += 100 / (math.sqrt(((self._block_size*7 - self._agent.x)**2 + ((HEIGHT - self._block_size*4 - 50) - self._agent.y))) + self._epsilon)
+        reward += 100 / (math.sqrt(((self._block_size*7 - self._agent.rect.x)**2 + ((HEIGHT - self._block_size*4 - 50) - self._agent.rect.y))) + self._epsilon)
         if reward == 100:
             self.terminated = True
             return obs, reward, self.terminated, self.truncated, {}
@@ -334,6 +337,29 @@ class Pls_learn():
     def close(self):
         pygame.quit()
 
+def main():
+    env = Pls_learn()
+    obs,info = env.reset()
 
+    check_env(env)
 
+    for i in range(10):
+        terminated = False
+        truncated = False
+        
+        while not terminated and not truncated:
+            action = env.action_space.sample()
+            print(f"Sampled action: {action}")
+            obs, reward, terminated, truncated, info = env.step(action)
+            # env.render()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    terminated = True
+                    return
+        
+        obs, info = env.reset()
 
+    env.close()
+
+if __name__ == "__main__":
+    main()
