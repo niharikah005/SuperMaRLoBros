@@ -21,7 +21,7 @@ pygame.display.set_caption("platformer game")
 
 # constants
 WIDTH,HEIGHT = 1056, 720
-FPS = 60
+FPS = 30
 PLAYER_VEL = 5
 REGION_SIZE = 146
 clock = pygame.time.Clock()
@@ -80,7 +80,7 @@ def draw(window, background, image, player, objects, x_offset):
     player.draw(window, x_offset)
     for object in objects:
         object.draw(window, x_offset)
-    clock.tick(FPS)
+    # clock.tick(FPS)
     pygame.display.update()
 
 def handle_vertical_collision(player, objects, dy):
@@ -330,7 +330,6 @@ class Pls_learn(gym.Env):
     def get_obs(self):
         x = max(REGION_SIZE, self._agent.rect.x)
         y = self._agent.rect.y
-        print(x)
         region = pygame.surfarray.array3d(self._screen).transpose(1, 0, 2)
         cropped_region = region[y-REGION_SIZE:y+REGION_SIZE, x-REGION_SIZE:x+REGION_SIZE,:].astype(np.float32)
         return cropped_region
@@ -362,5 +361,36 @@ def main():
 
     env.close()
 
+def train_agent():
+    env = DummyVecEnv([lambda: Pls_learn()])  
+
+   
+    model_params = {
+        "policy": "MlpPolicy",  
+        "env": env,             
+        "learning_rate": 0.0003,  
+        "n_steps": 2048,        
+        "batch_size": 64,       
+        "n_epochs": 10,         
+        "gamma": 0.99,          
+        "gae_lambda": 0.95,     
+        "clip_range": 0.2,      
+        "verbose": 1,          
+        "tensorboard_log": "./ppo_tensorboard" 
+    }
+
+    model = PPO(**model_params)
+    model.learn(total_timesteps=10000)
+    model.save("ppo_platformer")
+
+    obs = env.reset()
+    for _ in range(1000):
+        action, _ = model.predict(obs)
+        obs, rewards, done, info = env.step(action)
+        env.render()
+
+    env.close()
+
 if __name__ == "__main__":
-    main()
+    train_agent()
+
