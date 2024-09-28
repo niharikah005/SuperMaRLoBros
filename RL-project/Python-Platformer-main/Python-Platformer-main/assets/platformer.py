@@ -284,7 +284,7 @@ class Pls_learn(gym.Env):
         self._bg_image = None
         self._x_offset = 0
         self._epsilon = 1
-        self._screen_scroll_width = 50
+        self._screen_scroll_width = 146
         # -WIDTH // block_size will put it to # the left of the screen width and WIDTH * 2// block_size will put it to the right full width
         self._floor = [Block(i * self._block_size, HEIGHT - self._block_size, self._block_size) 
                 for i in range(-WIDTH // self._block_size, (WIDTH*2) // self._block_size)] 
@@ -328,8 +328,9 @@ class Pls_learn(gym.Env):
         return obs, reward, self.terminated, self.truncated, {}
 
     def get_obs(self):
-        x = self._agent.rect.x
+        x = max(REGION_SIZE, self._agent.rect.x)
         y = self._agent.rect.y
+        print(x)
         region = pygame.surfarray.array3d(self._screen).transpose(1, 0, 2)
         cropped_region = region[y-REGION_SIZE:y+REGION_SIZE, x-REGION_SIZE:x+REGION_SIZE,:].astype(np.float32)
         return cropped_region
