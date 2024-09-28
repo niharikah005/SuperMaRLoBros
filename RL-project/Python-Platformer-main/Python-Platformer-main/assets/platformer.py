@@ -243,7 +243,6 @@ class Fire(Object):
     def __init__(self, x, y, width, height):
         super().__init__(x, y, width, height, "fire")
         self.fire = load_sprites("Traps", "Fire", width, height)
-        print(len(self.fire["off"]))
         self.image = self.fire["off"][0]
         self.mask = pygame.mask.from_surface(self.image)
         self.animation_count = 0
@@ -268,6 +267,28 @@ class Fire(Object):
         if self.animation_count // self.ANIMATION_DELAY > len(sprites):
             self.animation_count = 0
 
+class Flag(Object):
+    ANIMATION_DELAY = 4
+    def __init__(self, x, y, width, height):
+        super().__init__(x, y, width, height, "flag")
+        self.flag = load_sprites("Items\Checkpoints", "Checkpoint", width, height)
+        self.animation_count = 0
+        self.animation_name = "idle"
+        self.image = self.flag["idle"][0]
+        self.mask = pygame.mask.from_surface(self.image)
+
+    def loop(self):
+        sprites = self.flag[self.animation_name]
+        sprite_index = (self.animation_count //
+                        self.ANIMATION_DELAY) % len(sprites)
+        self.image = sprites[sprite_index]
+        self.animation_count += 1
+
+        self.rect = self.image.get_rect(topleft=(self.rect.x, self.rect.y))
+        self.mask = pygame.mask.from_surface(self.image)
+
+        if self.animation_count // self.ANIMATION_DELAY > len(sprites):
+            self.animation_count = 0 
 
 # SB3 environment
 class Pls_learn(gym.Env):
@@ -288,8 +309,9 @@ class Pls_learn(gym.Env):
         # -WIDTH // block_size will put it to # the left of the screen width and WIDTH * 2// block_size will put it to the right full width
         self._floor = [Block(i * self._block_size, HEIGHT - self._block_size, self._block_size) 
                 for i in range(-WIDTH // self._block_size, (WIDTH*2) // self._block_size)] 
+        self._flag = Flag(self._block_size*9, HEIGHT - self._block_size*2, self._block_size, self._block_size)
         self._objects = [*self._floor, Block(self._block_size*4, HEIGHT - self._block_size*2, self._block_size), 
-               Block(self._block_size*7, HEIGHT - self._block_size*4, self._block_size)]
+               Block(self._block_size*7, HEIGHT - self._block_size*4, self._block_size), self._flag]
         
         self.action_space = spaces.Discrete(2) # 0: Left, 1: Right, 2: jump/double jump
         self.observation_space = spaces.Box(low=0.0, high=255.0, 
@@ -311,13 +333,14 @@ class Pls_learn(gym.Env):
         reward = 0
         movement(self._agent, self._objects, action)
         self._agent.loop(FPS)
+        self._flag.loop()
         if ((self._agent.rect.right - self._x_offset >= WIDTH - self._screen_scroll_width and self._agent.x_vel > 0) 
             or (self._agent.rect.left - self._x_offset <= self._screen_scroll_width and self._agent.x_vel < 0)):
             self._x_offset += self._agent.x_vel
         self._steps += 1
 
         obs = self.get_obs()
-        reward += 100 / (math.sqrt(((self._block_size*7 - self._agent.rect.x)**2 + ((HEIGHT - self._block_size*4 - 50) - self._agent.rect.y))) + self._epsilon)
+        reward += 100 / (math.sqrt(((self._block_size*7 - self._agent.rect.x)**2 + ((HEIGHT - self._block_size*4 - 50) - self._agent.rect.y)**2)) + self._epsilon)
         if reward == 100:
             self.terminated = True
             return obs, reward, self.terminated, self.truncated, {}
