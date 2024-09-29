@@ -88,11 +88,11 @@ def handle_vertical_collision(player, objects, dy):
     for obj in objects:
         if pygame.sprite.collide_mask(player, obj):
             if dy < 0:
+                player.rect.y = obj.rect.y + obj.rect.width
                 player.hit_head()
-                player.rect.top = obj.rect.bottom
             if dy > 0:
                 player.landed()
-                player.rect.bottom = obj.rect.top
+                player.rect.y = obj.rect.y - player.rect.height
                 
         colliding_objects.append(obj)
     return colliding_objects
@@ -110,7 +110,6 @@ def handle_horizontal_collision(player, objects, dx):
     return collided_object
 
 def movement(player, objects, action):
-    keys = pygame.key.get_pressed()
     player.x_vel = 0 # to reset the velocity.
     # the x2 in PLAYER_VEL is to avoid glitching due to animations
     collide_left = handle_horizontal_collision(player, objects, -PLAYER_VEL*2) 
@@ -346,7 +345,8 @@ class Pls_learn(gym.Env):
         self.truncated = False
         self.terminated = False
         reward = 0
-        movement(self._agent, self._objects, action)
+        if self._steps % 2 == 0:
+            movement(self._agent, self._objects, action)
         self._agent.loop(FPS)
         self._flag.loop()
         if ((self._agent.rect.right - self._x_offset >= WIDTH - self._screen_scroll_width and self._agent.x_vel > 0) 
@@ -366,11 +366,33 @@ class Pls_learn(gym.Env):
         return obs, reward, self.terminated, self.truncated, {}
 
     def get_obs(self):
-        x = max(REGION_SIZE, self._agent.rect.x)
-        y = max(REGION_SIZE, self._agent.rect.y)
-        region = pygame.surfarray.array3d(self._screen).transpose(1, 0, 2)
-        cropped_region = region[y-REGION_SIZE:y+REGION_SIZE, x-REGION_SIZE:x+REGION_SIZE,:].astype(np.float32)
-        return cropped_region
+        """
+        Returns the observation as a region around the player. It takes a 2D region
+        centered around the player, converts to grayscale if needed, and returns
+        the cropped observation.
+        """
+        # Get screen surface and crop around the agent
+        surface = pygame.surfarray.array3d(self._screen)  # Get the RGB array of the screen
+        x, y = self._agent.rect.center  # Get the player's center coordinates
+
+        # Ensure that the cropping does not go out of bounds
+        min_x = max(0, x - REGION_SIZE)
+        max_x = min(surface.shape[0], x + REGION_SIZE)
+        min_y = max(0, y - REGION_SIZE)
+        max_y = min(surface.shape[1], y + REGION_SIZE)
+
+        cropped = surface[min_x:max_x, min_y:max_y]
+
+        # If the cropped region is smaller than expected, resize it safely
+        if cropped.size == 0:
+            return np.zeros((REGION_SIZE*2, REGION_SIZE*2, 3)) / 255.0  # Return a black region
+
+        # Resize to the required shape and normalize
+        resized = cv2.resize(cropped, (REGION_SIZE * 2, REGION_SIZE * 2))
+
+        # Normalize the resized image
+        return resized / 255.0
+
 
     def close(self):
         pygame.quit()
