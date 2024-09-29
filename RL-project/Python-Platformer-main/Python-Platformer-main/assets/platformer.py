@@ -88,11 +88,12 @@ def handle_vertical_collision(player, objects, dy):
     for obj in objects:
         if pygame.sprite.collide_mask(player, obj):
             if dy < 0:
-                player.rect.top = obj.rect.bottom
                 player.hit_head()
+                player.rect.top = obj.rect.bottom
             if dy > 0:
-                player.rect.bottom = obj.rect.top
                 player.landed()
+                player.rect.bottom = obj.rect.top
+                
         colliding_objects.append(obj)
     return colliding_objects
 
@@ -110,11 +111,11 @@ def handle_horizontal_collision(player, objects, dx):
 
 def movement(player, objects, action):
     keys = pygame.key.get_pressed()
+    player.x_vel = 0 # to reset the velocity.
     # the x2 in PLAYER_VEL is to avoid glitching due to animations
     collide_left = handle_horizontal_collision(player, objects, -PLAYER_VEL*2) 
     collide_right = handle_horizontal_collision(player, objects, PLAYER_VEL*2)
 
-    player.x_vel = 0 # to reset the velocity.
     if action == 0 and not collide_left:
         player.move_left(PLAYER_VEL)
     if action == 1 and not collide_right:
@@ -310,10 +311,14 @@ class Pls_learn(gym.Env):
         self._floor = [Block(i * self._block_size, HEIGHT - self._block_size, self._block_size) 
                 for i in range(-WIDTH // self._block_size, (WIDTH*2) // self._block_size)] 
         self._flag = Flag(self._block_size*9, HEIGHT - self._block_size*2, self._block_size, self._block_size)
-        self._objects = [*self._floor, Block(self._block_size*4, HEIGHT - self._block_size*2, self._block_size), 
-               Block(self._block_size*7, HEIGHT - self._block_size*4, self._block_size), self._flag]
+        self._objects = [*self._floor, 
+                         Block(self._block_size*4, HEIGHT - self._block_size*2, self._block_size), 
+                         Block(self._block_size*7, HEIGHT - self._block_size*4, self._block_size), 
+                         Block(self._block_size*-1, HEIGHT - self._block_size*2, self._block_size),
+                         Block(self._block_size*-1, HEIGHT - self._block_size*3, self._block_size),
+                         self._flag]
         
-        self.action_space = spaces.Discrete(2) # 0: Left, 1: Right, 2: jump/double jump
+        self.action_space = spaces.Discrete(4) # 0: Left, 1: Right, 2: jump/double jump, 3: do nothing
         self.observation_space = spaces.Box(low=0.0, high=255.0, 
                                             shape=((REGION_SIZE*2), (REGION_SIZE*2),3), 
                                             dtype=np.float32)
@@ -322,9 +327,19 @@ class Pls_learn(gym.Env):
         self.terminated = False
         self.truncated = False
         self._steps = 0
+        self._x_offset = 0
         self._agent = Player(146,HEIGHT - self._block_size - 100,50,50)
 
         self._background, self._bg_image = get_background("Blue.png") 
+        self._floor = [Block(i * self._block_size, HEIGHT - self._block_size, self._block_size) 
+                        for i in range(-WIDTH // self._block_size, (WIDTH*2) // self._block_size)] 
+        self._flag = Flag(self._block_size*9, HEIGHT - self._block_size*2, self._block_size, self._block_size)
+        self._objects = [*self._floor, 
+                         Block(self._block_size*4, HEIGHT - self._block_size*2, self._block_size), 
+                         Block(self._block_size*7, HEIGHT - self._block_size*4, self._block_size), 
+                         Block(self._block_size*-1, HEIGHT - self._block_size*2, self._block_size),
+                         Block(self._block_size*-1, HEIGHT - self._block_size*3, self._block_size),
+                         self._flag]
         return self.get_obs(), {}
 
     def step(self, action):
@@ -352,7 +367,7 @@ class Pls_learn(gym.Env):
 
     def get_obs(self):
         x = max(REGION_SIZE, self._agent.rect.x)
-        y = self._agent.rect.y
+        y = max(REGION_SIZE, self._agent.rect.y)
         region = pygame.surfarray.array3d(self._screen).transpose(1, 0, 2)
         cropped_region = region[y-REGION_SIZE:y+REGION_SIZE, x-REGION_SIZE:x+REGION_SIZE,:].astype(np.float32)
         return cropped_region
