@@ -191,7 +191,6 @@ class Fire(Object):
     def __init__(self, x, y, width, height):
         super().__init__(x, y, width, height, "fire")
         self.fire = load_sprite_sheets("Traps", "Fire", width, height)
-        print(len(self.fire["off"]))
         self.image = self.fire["off"][0]
         self.mask = pygame.mask.from_surface(self.image)
         self.animation_count = 0
@@ -238,6 +237,126 @@ class Checkpoint(Object):
 
         if self.animation_count // self.ANIMATION_DELAY > len(sprites):
             self.animation_count = 0
+
+class Spikes(Object):
+    def __init__(self, x, y, width, height):
+        super().__init__(x, y, width, height, "spikes")
+        self.spikes = load_sprite_sheets("Traps", "Spikes", width, height)
+        self.image = self.spikes["Idle"][0]
+        self.mask = pygame.mask.from_surface(self.image)
+        self.animation_count = 0
+        self.animation_name = "Idle"
+
+class Flying_enemy(Object):
+    ANIMATION_DELAY = 4
+    def __init__(self, x, y, width, height):
+        super().__init__(x, y, width, height, "flying_box")
+        self.flying_box = load_sprite_sheets("Traps", "flying_enemy", width, height)
+        self.image = self.flying_box["Idle"][0]
+        self.mask = pygame.mask.from_surface(self.image)
+        self.animation_count = 0
+        self.animation_name = "Idle"
+    
+    def fly(self):
+        self.animation_name = "Fly"
+    
+    def attack(self):
+        self.animation_name = "Attack"
+
+    def hit(self):
+        self.animation_name = "Hit"
+
+    def loop(self):
+        sprites = self.flying_box[self.animation_name]
+        sprite_index = (self.animation_count //
+                        self.ANIMATION_DELAY) % len(sprites)
+        self.image = sprites[sprite_index]
+        self.animation_count += 1
+
+        self.rect = self.image.get_rect(topleft=(self.rect.x, self.rect.y))
+        self.mask = pygame.mask.from_surface(self.image)
+        if self.animation_count // self.ANIMATION_DELAY == len(sprites) // 2:
+            self.attack()
+        if self.animation_count // self.ANIMATION_DELAY > len(sprites):
+            self.animation_count = 0
+
+class Green_enemy(Object):
+    ANIMATION_DELAY = 4
+    THRESHOLD = 100
+    def __init__(self, x, y, width, height):
+        super().__init__(x, y, width, height, "green_enemy")
+        self.x = x
+        self.y = y
+        self.x_vel = 0
+        self.steps = 0
+        self.green_enemy = load_sprite_sheets("Traps", "green_enemy", width, height, direction=True)
+        self.image = self.green_enemy["Idle_left"][0]
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        self.animation_count = 0
+        self.direction = "left"
+        self.animation_name = "Idle"
+
+    def move(self, dx):
+        self.rect.x += dx
+
+    def move_left(self):
+        self.x_vel *= -1 
+        if self.direction != "left":
+            self.direction = "left"
+            self.animation_count = 0
+    
+    def move_right(self):
+        self.x_vel *= -1
+        if self.direction != "right":
+            self.direction = "right"
+            self.animation_count = 0
+
+    def hit(self):
+        self.animation_name = "Hit"
+        self.x_vel = 0
+
+    def run(self):
+        self.animation_name = "Run"
+        self.x_vel = 3
+
+    def run_attack(self):
+        self.animation_name = "Run_Attack"
+
+    def movement(self, player):
+        if self.x_vel == 0:
+            self.run()
+
+        if player.rect.x <= self.rect.x + self.THRESHOLD:
+            self.run_attack()
+
+        if 0 <= self.steps % (self.ANIMATION_DELAY * 100) <= self.ANIMATION_DELAY * 50:
+            self.move_left()
+        else:
+            self.move_right()
+        self.move(self.x_vel)
+
+    def loop(self):
+        self.move(self.x_vel)
+        sprite_name = self.animation_name + "_" + self.direction
+        sprites = self.green_enemy[sprite_name]
+        sprite_index = (self.animation_count //
+                        self.ANIMATION_DELAY) % len(sprites)
+        self.image = sprites[sprite_index]
+        self.animation_count += 1
+        self.steps += 1
+        self.rect = self.image.get_rect(topleft=(self.rect.x, self.rect.y))
+        self.mask = pygame.mask.from_surface(self.image)
+        if self.animation_count // self.ANIMATION_DELAY > len(sprites):
+            self.animation_count = 0
+        
+
+        # sprite_sheet_name = sprite_sheet + "_" + self.direction
+        # sprites = self.SPRITES[sprite_sheet_name]
+        # sprite_index = (self.animation_count //
+        #                 self.ANIMATION_DELAY) % len(sprites)
+        # self.sprite = sprites[sprite_index]
+        # self.animation_count += 1
 
 def get_background(name):
     image = pygame.image.load(join("Python-Platformer-main\Python-Platformer-main", "assets", "Background", name))
@@ -286,7 +405,10 @@ def collide(player, objects, dx):
     collided_object = None
     for obj in objects:
         if pygame.sprite.collide_mask(player, obj):
-            collided_object = obj
+            if obj.name == "green_enemy":
+                player.make_hit()
+            else:
+                collided_object = obj
             break
 
     player.move(-dx, 0)
@@ -310,8 +432,14 @@ def handle_move(player, objects):
     to_check = [collide_left, collide_right, *vertical_collide]
 
     for obj in to_check:
-        if obj and obj.name == "fire":
+        if obj and (obj.name == "fire" or obj.name == "spikes"):
             player.make_hit()
+        
+        if obj and obj.name == "flying_box":
+            obj.hit()
+        
+        if obj and obj.name == "green_enemy":
+            obj.hit()
 
 def movement(player, objects, action):
     keys = pygame.key.get_pressed()
@@ -331,8 +459,13 @@ def movement(player, objects, action):
     to_check = [collide_left, collide_right, *vertical_collide]
 
     for obj in to_check:
-        if obj and obj.name == "fire":
+        if obj and (obj.name == "fire" or obj.name == "spikes"):
             player.make_hit()
+        
+        if obj and obj.name == "flying_box":
+            obj.hit()
+            
+
 
 
 def main(window):
@@ -340,23 +473,35 @@ def main(window):
     background, bg_image = get_background("Blue.png")
 
     block_size = 96
+    spike_size = 16
+    enemy_size = 48
+    green_enemy_size = 72
 
     player = Player(100, 100, 50, 50)
     fire = Fire(block_size * 7.5, HEIGHT - block_size * 2 - 64, 16, 32)
-    flag = Checkpoint(block_size * 12, HEIGHT - block_size - 128)
+    flag = Checkpoint(block_size * 17, HEIGHT - block_size - 128)
+    attacking_block = Flying_enemy(block_size * 8, HEIGHT - block_size * 3 - enemy_size, enemy_size, enemy_size)
+    green_enemy = Green_enemy(block_size * 15, HEIGHT - block_size - green_enemy_size, green_enemy_size, enemy_size)
     fire.on()
+    attacking_block.fly()
+    green_enemy.movement(player)
     floor = [Block(i * block_size, HEIGHT - block_size, block_size)
              for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
     objects = [*floor, 
                Block(block_size * -5, HEIGHT - block_size * 2, block_size),
                Block(block_size * -5, HEIGHT - block_size * 3, block_size),
-               Block(block_size * 15, HEIGHT - block_size * 2, block_size),
-               Block(block_size * 15, HEIGHT - block_size * 3, block_size),
+               Block(block_size * 18, HEIGHT - block_size * 2, block_size),
+               Block(block_size * 18, HEIGHT - block_size * 3, block_size),
                Block(block_size * 3, HEIGHT - block_size * 4, block_size),
                Block(block_size * 4, HEIGHT - block_size * 4, block_size),
                Block(block_size * 6, HEIGHT - block_size * 2, block_size),
                Block(block_size * 7, HEIGHT - block_size * 2, block_size),
+               Spikes(block_size * 5, HEIGHT - block_size - spike_size *2, spike_size, spike_size),
+               Spikes(block_size * 5 + spike_size * 2, HEIGHT - block_size - spike_size *2, spike_size, spike_size),
+               Spikes(block_size * 5 + spike_size * 4, HEIGHT - block_size - spike_size *2, spike_size, spike_size),
                flag,
+               green_enemy,
+               attacking_block,
                fire
                ]
 
@@ -379,7 +524,10 @@ def main(window):
         player.loop(FPS)
         fire.loop()
         flag.loop()
+        attacking_block.loop()
+        green_enemy.loop()
         handle_move(player, objects)
+        green_enemy.movement(player)
         draw(window, background, bg_image, player, objects, offset_x)
 
         if ((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0) or (
@@ -539,9 +687,9 @@ def sampling():
     env.close()
 
 if __name__ == "__main__":
-    # main(screen)
+    main(screen)
     env = Pls_learn()
     # check_env(env)
-    sampling()
+    # sampling()
 
 
