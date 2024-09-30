@@ -26,7 +26,7 @@ PLAYER_VEL = 5
 REGION_SIZE = 146
 clock = pygame.time.Clock()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("platformer game")
+
 
 
 # file loading utils
@@ -131,6 +131,7 @@ class Player(pygame.sprite.Sprite): # self.sprite come from here
     COLOR = (255,0,0)
     SPRITES = load_sprites("MainCharacters", "MaskDude", 32, 32, True)
     ANIMATION_DELAY = 4
+    TERMINAL_VELOCITY = 5
     def __init__(self, x,y,width,height):
         super().__init__()
         self.rect = pygame.Rect(x,y,width,height)
@@ -146,7 +147,7 @@ class Player(pygame.sprite.Sprite): # self.sprite come from here
         self.sprite = self.SPRITES["idle_left"][0] 
 
     def jump(self):
-        self.y_vel = -self.GRAVITY * 8
+        self.y_vel = -self.GRAVITY * 10
         self.animation_count = 0
         self.jump_count += 1
         if self.jump_count == 1:
@@ -155,6 +156,7 @@ class Player(pygame.sprite.Sprite): # self.sprite come from here
     def move(self,dx,dy):
         self.rect.x += dx
         self.rect.y += dy
+        print(self.rect.y)
 
     def move_left(self,vel):
         self.x_vel = -vel
@@ -183,6 +185,8 @@ class Player(pygame.sprite.Sprite): # self.sprite come from here
     def loop(self, fps):
         # will be used to move everything
         self.y_vel += min(1, self.GRAVITY*(self.fall_count/fps))
+        self.y_vel = min(self.y_vel, self.TERMINAL_VELOCITY)
+        # print(self.y_vel)
         self.move(self.x_vel,self.y_vel) # dx = self.x_vel, dy = self.y_vel
 
         self.fall_count += 1 # put this back to zero when jumping or landing to avoid extreme values of gravity on player.
@@ -309,7 +313,7 @@ class Pls_learn(gym.Env):
         # -WIDTH // block_size will put it to # the left of the screen width and WIDTH * 2// block_size will put it to the right full width
         self._floor = [Block(i * self._block_size, HEIGHT - self._block_size, self._block_size) 
                 for i in range(-WIDTH // self._block_size, (WIDTH*2) // self._block_size)] 
-        self._flag = Flag(self._block_size*9, HEIGHT - self._block_size*2, self._block_size, self._block_size)
+        self._flag = Flag(self._block_size*9, HEIGHT - self._block_size - 128, 64, 64)
         self._objects = [*self._floor, 
                          Block(self._block_size*4, HEIGHT - self._block_size*2, self._block_size), 
                          Block(self._block_size*7, HEIGHT - self._block_size*4, self._block_size), 
@@ -345,10 +349,14 @@ class Pls_learn(gym.Env):
         self.truncated = False
         self.terminated = False
         reward = 0
-        if self._steps % 2 == 0:
-            movement(self._agent, self._objects, action)
         self._agent.loop(FPS)
         self._flag.loop()
+        if self._steps % 2 == 0:
+            movement(self._agent, self._objects, action)
+            print(action)
+        
+        self._agent.y_vel = min(self._agent.y_vel, self._agent.TERMINAL_VELOCITY)
+        
         if ((self._agent.rect.right - self._x_offset >= WIDTH - self._screen_scroll_width and self._agent.x_vel > 0) 
             or (self._agent.rect.left - self._x_offset <= self._screen_scroll_width and self._agent.x_vel < 0)):
             self._x_offset += self._agent.x_vel

@@ -1,18 +1,31 @@
 import os
-import random
+import cv2
 import math
 import pygame
+import random
+import numpy as np
 from os import listdir
-from os.path import isfile, join
+import gymnasium as gym
+from gymnasium import Env
+from gymnasium import spaces
+from os.path import join, isfile
+from stable_baselines3 import PPO
+from gymnasium.wrappers import frame_stack
+from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.env_checker import check_env
+from stable_baselines3.common.evaluation import evaluate_policy
+
+
 pygame.init()
+pygame.display.set_caption("platformer game")
 
-pygame.display.set_caption("Platformer")
-
-WIDTH, HEIGHT = 1000, 800
-FPS = 60
+# constants
+WIDTH,HEIGHT = 1056, 720
+FPS = 30
 PLAYER_VEL = 5
-
-window = pygame.display.set_mode((WIDTH, HEIGHT))
+REGION_SIZE = 146
+clock = pygame.time.Clock()
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
 
 def flip(sprites):
@@ -20,7 +33,7 @@ def flip(sprites):
 
 
 def load_sprite_sheets(dir1, dir2, width, height, direction=False):
-    path = join("assets", dir1, dir2)
+    path = join("Python-Platformer-main\Python-Platformer-main", "assets", dir1, dir2)
     images = [f for f in listdir(path) if isfile(join(path, f))]
 
     all_sprites = {}
@@ -45,7 +58,7 @@ def load_sprite_sheets(dir1, dir2, width, height, direction=False):
 
 
 def get_block(size):
-    path = join("assets", "Terrain", "Terrain.png")
+    path = join("Python-Platformer-main\Python-Platformer-main", "assets", "Terrain", "Terrain.png")
     image = pygame.image.load(path).convert_alpha()
     surface = pygame.Surface((size, size), pygame.SRCALPHA, 32)
     rect = pygame.Rect(96, 0, size, size)
@@ -71,6 +84,7 @@ class Player(pygame.sprite.Sprite):
         self.jump_count = 0
         self.hit = False
         self.hit_count = 0
+        self.sprite = self.SPRITES["idle_left"][0] 
 
     def jump(self):
         self.y_vel = -self.GRAVITY * 8
@@ -202,9 +216,31 @@ class Fire(Object):
         if self.animation_count // self.ANIMATION_DELAY > len(sprites):
             self.animation_count = 0
 
+class Checkpoint(Object):
+    ANIMATION_DELAY = 4
+    def __init__(self, x, y, width=64, height=64):
+        super().__init__(x, y,width, height, name="flag")
+        self.flag = load_sprite_sheets("Items\Checkpoints", "Checkpoint", width, height)
+        self.image = self.flag["idle"][0]
+        self.mask = pygame.mask.from_surface(self.image)
+        self.animation_count = 0
+        self.animation_name = "idle"
+
+    def loop(self):
+        sprites = self.flag[self.animation_name]
+        sprite_index = (self.animation_count //
+                        self.ANIMATION_DELAY) % len(sprites)
+        self.image = sprites[sprite_index]
+        self.animation_count += 1
+
+        self.rect = self.image.get_rect(topleft=(self.rect.x, self.rect.y))
+        self.mask = pygame.mask.from_surface(self.image)
+
+        if self.animation_count // self.ANIMATION_DELAY > len(sprites):
+            self.animation_count = 0
 
 def get_background(name):
-    image = pygame.image.load(join("assets", "Background", name))
+    image = pygame.image.load(join("Python-Platformer-main\Python-Platformer-main", "assets", "Background", name))
     _, _, width, height = image.get_rect()
     tiles = []
 
@@ -224,7 +260,7 @@ def draw(window, background, bg_image, player, objects, offset_x):
         obj.draw(window, offset_x)
 
     player.draw(window, offset_x)
-
+    clock.tick(FPS)
     pygame.display.update()
 
 
@@ -277,6 +313,27 @@ def handle_move(player, objects):
         if obj and obj.name == "fire":
             player.make_hit()
 
+def movement(player, objects, action):
+    keys = pygame.key.get_pressed()
+
+    player.x_vel = 0
+    collide_left = collide(player, objects, -PLAYER_VEL * 2)
+    collide_right = collide(player, objects, PLAYER_VEL * 2)
+
+    if action == 0 and not collide_left:
+        player.move_left(PLAYER_VEL)
+    if action == 1 and not collide_right:
+        player.move_right(PLAYER_VEL)
+    if action == 2 and player.jump_count < 2:
+        player.jump()
+
+    vertical_collide = handle_vertical_collision(player, objects, player.y_vel)
+    to_check = [collide_left, collide_right, *vertical_collide]
+
+    for obj in to_check:
+        if obj and obj.name == "fire":
+            player.make_hit()
+
 
 def main(window):
     clock = pygame.time.Clock()
@@ -285,12 +342,23 @@ def main(window):
     block_size = 96
 
     player = Player(100, 100, 50, 50)
-    fire = Fire(100, HEIGHT - block_size - 64, 16, 32)
+    fire = Fire(block_size * 7.5, HEIGHT - block_size * 2 - 64, 16, 32)
+    flag = Checkpoint(block_size * 12, HEIGHT - block_size - 128)
     fire.on()
     floor = [Block(i * block_size, HEIGHT - block_size, block_size)
              for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
-    objects = [*floor, Block(0, HEIGHT - block_size * 2, block_size),
-               Block(block_size * 3, HEIGHT - block_size * 4, block_size), fire]
+    objects = [*floor, 
+               Block(block_size * -5, HEIGHT - block_size * 2, block_size),
+               Block(block_size * -5, HEIGHT - block_size * 3, block_size),
+               Block(block_size * 15, HEIGHT - block_size * 2, block_size),
+               Block(block_size * 15, HEIGHT - block_size * 3, block_size),
+               Block(block_size * 3, HEIGHT - block_size * 4, block_size),
+               Block(block_size * 4, HEIGHT - block_size * 4, block_size),
+               Block(block_size * 6, HEIGHT - block_size * 2, block_size),
+               Block(block_size * 7, HEIGHT - block_size * 2, block_size),
+               flag,
+               fire
+               ]
 
     offset_x = 0
     scroll_area_width = 200
@@ -310,6 +378,7 @@ def main(window):
 
         player.loop(FPS)
         fire.loop()
+        flag.loop()
         handle_move(player, objects)
         draw(window, background, bg_image, player, objects, offset_x)
 
@@ -320,6 +389,159 @@ def main(window):
     pygame.quit()
     quit()
 
+class Pls_learn(gym.Env):
+    def __init__(self):
+        self._screen =  pygame.display.set_mode((WIDTH,HEIGHT))
+        self._block = 96
+        self._trap_size = 48
+        self._agent = Player(146,HEIGHT - self._block - 100,50,50)
+        self._x_offset = 0
+        self._steps = 0
+        self.truncated = False
+        self.terminated = False
+        self._background = None
+        self._bg_image = None
+        self._x_offset = 0
+        self._epsilon = 1
+        self._screen_scroll_width = 146
+        # -WIDTH // self._block will put it to # the left of the screen width and WIDTH * 2// self._block will put it to the right full width
+        self._floor = [Block(i * self._block, HEIGHT - self._block, self._block) 
+                for i in range(-WIDTH // self._block, (WIDTH*2) // self._block)] 
+        
+        self.action_space = spaces.Discrete(4) # 0: Left, 1: Right, 2: jump/double jump, 3: do nothing
+        self.observation_space = spaces.Box(low=0.0, high=255.0, 
+                                            shape=((REGION_SIZE*2 * REGION_SIZE*2),), 
+                                            dtype=np.float32)
+        
+        self._fire = Fire(self._block * 7.5, HEIGHT - self._block * 2 - 64, 16, 32)
+        self._flag = Checkpoint(self._block * 9, HEIGHT - self._block - 128)
+        self._fire.on()
+        self._floor = [Block(i * self._block, HEIGHT - self._block, self._block)
+                for i in range(-WIDTH // self._block, (WIDTH * 2) // self._block)]
+        self._objects = [*self._floor, 
+                Block(self._block * -5, HEIGHT - self._block * 2, self._block),
+                Block(self._block * -5, HEIGHT - self._block * 3, self._block),
+                Block(self._block * 15, HEIGHT - self._block * 2, self._block),
+                Block(self._block * 15, HEIGHT - self._block * 3, self._block),
+                Block(self._block * 3, HEIGHT - self._block * 4, self._block),
+                Block(self._block * 4, HEIGHT - self._block * 4, self._block),
+                Block(self._block * 6, HEIGHT - self._block * 2, self._block),
+                Block(self._block * 7, HEIGHT - self._block * 2, self._block),
+                self._flag,
+                self._fire
+                ]
+    
+    def reset(self, seed=None):
+        self.terminated = False
+        self.truncated = False
+        self._steps = 0
+        self._x_offset = 0
+        self._agent = Player(146,HEIGHT - self._block - 100,50,50)
+
+        self._background, self._bg_image = get_background("Blue.png") 
+        self._floor = [Block(i * self._block, HEIGHT - self._block, self._block) 
+                        for i in range(-WIDTH // self._block, (WIDTH*2) // self._block)] 
+        self._flag = Checkpoint(self._block * 9, HEIGHT - self._block - 128)
+        self._fire = Fire(self._block * 7.5, HEIGHT - self._block * 2 - 64, 16, 32)
+        self._fire.on()
+        self._objects = [*self._floor, 
+                Block(self._block * -5, HEIGHT - self._block * 2, self._block),
+                Block(self._block * -5, HEIGHT - self._block * 3, self._block),
+                Block(self._block * 15, HEIGHT - self._block * 2, self._block),
+                Block(self._block * 15, HEIGHT - self._block * 3, self._block),
+                Block(self._block * 3, HEIGHT - self._block * 4, self._block),
+                Block(self._block * 4, HEIGHT - self._block * 4, self._block),
+                Block(self._block * 6, HEIGHT - self._block * 2, self._block),
+                Block(self._block * 7, HEIGHT - self._block * 2, self._block),
+                self._flag,
+                self._fire
+                ]
+        return self.get_obs(), {}
+
+    def step(self, action):
+        self.truncated = False
+        self.terminated = False
+        reward = 0
+        self._agent.loop(FPS)
+        self._flag.loop()
+        self._fire.loop()
+        movement(self._agent, self._objects, action)
+        if ((self._agent.rect.right - self._x_offset >= WIDTH - self._screen_scroll_width and self._agent.x_vel > 0) 
+            or (self._agent.rect.left - self._x_offset <= self._screen_scroll_width and self._agent.x_vel < 0)):
+            self._x_offset += self._agent.x_vel
+        self._steps += 1
+
+        obs = self.get_obs()
+        reward += 100 / (math.sqrt(((self._block*7 - self._agent.rect.x)**2 + ((HEIGHT - self._block*4 - 50) - self._agent.rect.y)**2)) + self._epsilon)
+        if reward == 100:
+            self.terminated = True
+            return obs, reward, self.terminated, self.truncated, {}
+        if self._steps >= 500:
+            self.truncated = True
+
+        draw(self._screen, self._background, self._bg_image, self._agent, self._objects, self._x_offset)
+        return obs, reward, self.terminated, self.truncated, {}
+
+    def get_obs(self):
+        """
+        Returns the observation as a region around the player. It takes a 2D region
+        centered around the player, converts to grayscale if needed, and returns
+        the cropped observation.
+        """
+        # Get screen surface and crop around the agent
+        surface = pygame.surfarray.array3d(self._screen)  # Get the RGB array of the screen
+        x, y = self._agent.rect.center  # Get the player's center coordinates
+
+        # Ensure that the cropping does not go out of bounds
+        min_x = max(0, x - REGION_SIZE)
+        max_x = min(surface.shape[0], x + REGION_SIZE)
+        min_y = max(0, y - REGION_SIZE)
+        max_y = min(surface.shape[1], y + REGION_SIZE)
+
+        cropped = surface[min_x:max_x, min_y:max_y].astype(np.float32)
+
+        # If the cropped region is smaller than expected, resize it safely
+        if cropped.size == 0:
+            return np.zeros((REGION_SIZE*2, REGION_SIZE*2, 3)) / 255.0  # Return a black region
+
+        # Resize to the required shape and normalize
+        resized = cv2.resize(cropped, (REGION_SIZE * 2, REGION_SIZE * 2))
+        resized = cv2.cvtColor(resized, cv2.COLOR_RGB2GRAY)
+        flattened = resized.flatten()
+        # Normalize the resized image
+        return flattened
+
+    def close(self):
+        pygame.quit()
+
+def sampling():
+    env = Pls_learn()
+    obs,info = env.reset()
+
+    # check_env(env)
+
+    for i in range(10):
+        terminated = False
+        truncated = False
+        
+        while not terminated and not truncated:
+            action = env.action_space.sample()
+            print(f"Sampled action: {action}")
+            obs, reward, terminated, truncated, info = env.step(action)
+            # env.render()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    terminated = True
+                    return
+        
+        obs, info = env.reset()
+
+    env.close()
 
 if __name__ == "__main__":
-    main(window)
+    # main(screen)
+    env = Pls_learn()
+    # check_env(env)
+    sampling()
+
+
