@@ -85,12 +85,9 @@ class Player(pygame.sprite.Sprite):
         self.hit = False
         self.hit_count = 0
         self.sprite = self.SPRITES["idle_left"][0] 
-        self.sprite_sheet = "idle"
-        self.is_jumping = False
 
     def jump(self):
         self.y_vel = -self.GRAVITY * 8
-        self.is_jumping = True
         self.animation_count = 0
         self.jump_count += 1
         if self.jump_count == 1:
@@ -115,16 +112,8 @@ class Player(pygame.sprite.Sprite):
             self.direction = "right"
             self.animation_count = 0
 
-    def jump_and_move_right(self, vel):
-        self.y_vel = -self.GRAVITY * 8
-        self.x_vel += vel
-        self.animation_count = 0
-        self.jump_count += 1
-        if self.jump_count == 1:
-            self.fall_count = 0
-
     def loop(self, fps):
-        self.y_vel += min(2, (self.fall_count / fps) * self.GRAVITY)
+        self.y_vel += min(1, (self.fall_count / fps) * self.GRAVITY)
         self.move(self.x_vel, self.y_vel)
 
         if self.hit:
@@ -140,27 +129,26 @@ class Player(pygame.sprite.Sprite):
         self.fall_count = 0
         self.y_vel = 0
         self.jump_count = 0
-        self.is_jumping = False
 
     def hit_head(self):
         self.count = 0
         self.y_vel *= -1
 
     def update_sprite(self):
-        self.sprite_sheet = "idle"
+        sprite_sheet = "idle"
         if self.hit:
-            self.sprite_sheet = "hit"
+            sprite_sheet = "hit"
         elif self.y_vel < 0:
             if self.jump_count == 1:
-                self.sprite_sheet = "jump"
+                sprite_sheet = "jump"
             elif self.jump_count == 2:
-                self.sprite_sheet = "double_jump"
+                sprite_sheet = "double_jump"
         elif self.y_vel > self.GRAVITY * 2:
-            self.sprite_sheet = "fall"
+            sprite_sheet = "fall"
         elif self.x_vel != 0:
-            self.sprite_sheet = "run"
+            sprite_sheet = "run"
 
-        sprite_sheet_name = self.sprite_sheet + "_" + self.direction
+        sprite_sheet_name = sprite_sheet + "_" + self.direction
         sprites = self.SPRITES[sprite_sheet_name]
         sprite_index = (self.animation_count //
                         self.ANIMATION_DELAY) % len(sprites)
@@ -231,8 +219,6 @@ class Checkpoint(Object):
     ANIMATION_DELAY = 4
     def __init__(self, x, y, width=64, height=64):
         super().__init__(x, y,width, height, name="flag")
-        self.x = x
-        self.y = y
         self.flag = load_sprite_sheets("Items\Checkpoints", "Checkpoint", width, height)
         self.image = self.flag["idle"][0]
         self.mask = pygame.mask.from_surface(self.image)
@@ -336,7 +322,7 @@ class Green_enemy(Object):
 
         if self.hit:
             self.hit_count += 1
-        if self.hit_count > 10:
+        if self.hit_count > fps * 2:
             self.hit = False
             self.hit_count = 0
 
@@ -371,7 +357,7 @@ class Green_enemy(Object):
     def run_attack(self):
         self.animation_name = "Run_Attack"
 
-    def movement(self, player): 
+    def movement(self, player):
         if self.x_vel == 0:
             self.run()
 
@@ -414,7 +400,7 @@ def handle_vertical_collision(player, objects, dy):
     for obj in objects:
         if pygame.sprite.collide_mask(player, obj):
             if dy > 0:
-                if obj.name == "flying_box":
+                if obj.name == "flying_box" or obj.name == "green_enemy":
                     if player.rect.bottom >= HEIGHT - 100:
                         player.hit_head()
                         continue
@@ -435,9 +421,7 @@ def collide(player, objects, dx):
     collided_object = None
     for obj in objects:
         if pygame.sprite.collide_mask(player, obj):
-            if (obj.name == "green_enemy" 
-                or obj.name == "fire" 
-                or obj.name == "spikes"):
+            if obj.name == "green_enemy" and player.rect.bottom >= HEIGHT - 100:
                 player.make_hit()
             else:
                 collided_object = obj
@@ -472,41 +456,33 @@ def handle_move(player, objects):
                 obj.hit()
             else:
                 player.make_hit()
-
+        
         if obj and obj.name == "green_enemy":
             obj.make_hit()
 
 def movement(player, objects, action):
+    keys = pygame.key.get_pressed()
+
     player.x_vel = 0
     collide_left = collide(player, objects, -PLAYER_VEL * 2)
     collide_right = collide(player, objects, PLAYER_VEL * 2)
 
-    if action == 0 and not collide_right:
+    if action == 0 and not collide_left:
+        player.move_left(PLAYER_VEL)
+    if action == 1 and not collide_right:
         player.move_right(PLAYER_VEL)
-    if action == 1 and player.jump_count < 2:
-        if player.is_jumping:
-            player.move_right(PLAYER_VEL)
+    if action == 2 and player.jump_count < 2:
         player.jump()
-    if action == 2 and not collide_right and player.jump_count < 2:
-        player.jump()
-        player.move_right(PLAYER_VEL)
-        player.is_jumping = True
 
     vertical_collide = handle_vertical_collision(player, objects, player.y_vel)
-    to_check = [*vertical_collide]
+    to_check = [collide_left, collide_right, *vertical_collide]
 
     for obj in to_check:
         if obj and (obj.name == "fire" or obj.name == "spikes"):
             player.make_hit()
         
         if obj and obj.name == "flying_box":
-            if player.rect.bottom >= obj.rect.top:
-                obj.hit()
-            else:
-                player.make_hit()
-        
-        if obj and obj.name == "green_enemy":
-            obj.make_hit()
+            obj.hit()
             
 
 
@@ -520,11 +496,11 @@ def main(window):
     enemy_size = 48
     green_enemy_size = 72
 
-    player = Player(146,HEIGHT - block_size - 100,50,50)
+    player = Player(100, 100, 50, 50)
     fire = Fire(block_size * 7.5, HEIGHT - block_size * 2 - 64, 16, 32)
     flag = Checkpoint(block_size * 17, HEIGHT - block_size - 128)
-    attacking_block = Flying_enemy(block_size * 9, HEIGHT - block_size - enemy_size * 3, enemy_size, enemy_size)
-    green_enemy = Green_enemy(block_size * 15, HEIGHT - block_size - green_enemy_size - spike_size, green_enemy_size, enemy_size)
+    attacking_block = Flying_enemy(block_size * 8, HEIGHT - block_size - enemy_size * 3, enemy_size, enemy_size)
+    green_enemy = Green_enemy(block_size * 15, HEIGHT - block_size - green_enemy_size - spike_size - 10, green_enemy_size, enemy_size)
     fire.on()
     attacking_block.fly()
     green_enemy.movement(player)
@@ -539,6 +515,7 @@ def main(window):
                Block(block_size * 4, HEIGHT - block_size * 4, block_size),
                Block(block_size * 6, HEIGHT - block_size * 2, block_size),
                Block(block_size * 7, HEIGHT - block_size * 2, block_size),
+               Spikes(block_size * 5, HEIGHT - block_size - spike_size *2, spike_size, spike_size),
                Spikes(block_size * 5 + spike_size * 2, HEIGHT - block_size - spike_size *2, spike_size, spike_size),
                Spikes(block_size * 5 + spike_size * 4, HEIGHT - block_size - spike_size *2, spike_size, spike_size),
                flag,
@@ -549,7 +526,7 @@ def main(window):
 
     offset_x = 0
     scroll_area_width = 200
-    i = 0
+
     run = True
     while run:
         clock.tick(FPS)
@@ -568,10 +545,7 @@ def main(window):
         flag.loop()
         attacking_block.loop()
         green_enemy.loop(FPS)
-        actions = [0,2,1,1,1,0,0,0,0,0]
-        # movement(player, objects, actions[i % len(actions)])
         handle_move(player, objects)
-        i += 1
         green_enemy.movement(player)
         draw(window, background, bg_image, player, objects, offset_x)
 
@@ -585,11 +559,9 @@ def main(window):
 class Pls_learn(gym.Env):
     def __init__(self):
         self._screen =  pygame.display.set_mode((WIDTH,HEIGHT))
-        self._block_size = 96
-        self._enemy_size = 48
-        self._green_enemy_size = 72
-        self._spike_size = 16
-        self._agent = Player(146,HEIGHT - self._block_size - 100,50,50)
+        self._block = 96
+        self._trap_size = 48
+        self._agent = Player(146,HEIGHT - self._block - 100,50,50)
         self._x_offset = 0
         self._steps = 0
         self.truncated = False
@@ -599,109 +571,79 @@ class Pls_learn(gym.Env):
         self._x_offset = 0
         self._epsilon = 1
         self._screen_scroll_width = 146
+        # -WIDTH // self._block will put it to # the left of the screen width and WIDTH * 2// self._block will put it to the right full width
+        self._floor = [Block(i * self._block, HEIGHT - self._block, self._block) 
+                for i in range(-WIDTH // self._block, (WIDTH*2) // self._block)] 
+        
         self.action_space = spaces.Discrete(4) # 0: Left, 1: Right, 2: jump/double jump, 3: do nothing
         self.observation_space = spaces.Box(low=0.0, high=255.0, 
                                             shape=((REGION_SIZE*2 * REGION_SIZE*2),), 
                                             dtype=np.float32)
         
-        self._fire = Fire(self._block_size * 7.5, HEIGHT - self._block_size * 2 - 64, 16, 32)
-        self._flag = Checkpoint(self._block_size * 17, HEIGHT - self._block_size - 128)
+        self._fire = Fire(self._block * 7.5, HEIGHT - self._block * 2 - 64, 16, 32)
+        self._flag = Checkpoint(self._block * 9, HEIGHT - self._block - 128)
         self._fire.on()
-        self.attacking_block = Flying_enemy(self._block_size * 9, HEIGHT - self._block_size - self._enemy_size * 3, self._enemy_size, self._enemy_size)
-        self.green_enemy = Green_enemy(self._block_size * 15, HEIGHT - self._block_size - self._green_enemy_size - self._spike_size, self._green_enemy_size, self._enemy_size)
-        self._fire.on()
-        self.attacking_block.fly()
-        self.green_enemy.movement(self._agent)
-        floor = [Block(i * self._block_size, HEIGHT - self._block_size, self._block_size)
-                for i in range(0, (WIDTH * 3) // self._block_size)]
-        self._objects = [*floor, 
-                Block(self._block_size * -5, HEIGHT - self._block_size * 2, self._block_size),
-                Block(self._block_size * -5, HEIGHT - self._block_size * 3, self._block_size),
-                Block(self._block_size * 18, HEIGHT - self._block_size * 2, self._block_size),
-                Block(self._block_size * 18, HEIGHT - self._block_size * 3, self._block_size),
-                Block(self._block_size * 3, HEIGHT - self._block_size * 4, self._block_size),
-                Block(self._block_size * 4, HEIGHT - self._block_size * 4, self._block_size),
-                Block(self._block_size * 6, HEIGHT - self._block_size * 2, self._block_size),
-                Block(self._block_size * 7, HEIGHT - self._block_size * 2, self._block_size),
-                Spikes(self._block_size * 5 + self._spike_size * 2, HEIGHT - self._block_size - self._spike_size *2, self._spike_size, self._spike_size),
-                Spikes(self._block_size * 5 + self._spike_size * 4, HEIGHT - self._block_size - self._spike_size *2, self._spike_size, self._spike_size),
+        self._floor = [Block(i * self._block, HEIGHT - self._block, self._block)
+                for i in range(-WIDTH // self._block, (WIDTH * 2) // self._block)]
+        self._objects = [*self._floor, 
+                Block(self._block * -5, HEIGHT - self._block * 2, self._block),
+                Block(self._block * -5, HEIGHT - self._block * 3, self._block),
+                Block(self._block * 15, HEIGHT - self._block * 2, self._block),
+                Block(self._block * 15, HEIGHT - self._block * 3, self._block),
+                Block(self._block * 3, HEIGHT - self._block * 4, self._block),
+                Block(self._block * 4, HEIGHT - self._block * 4, self._block),
+                Block(self._block * 6, HEIGHT - self._block * 2, self._block),
+                Block(self._block * 7, HEIGHT - self._block * 2, self._block),
                 self._flag,
-                self.green_enemy,
-                self.attacking_block,
                 self._fire
                 ]
-
     
     def reset(self, seed=None):
         self.terminated = False
         self.truncated = False
         self._steps = 0
         self._x_offset = 0
-        self._agent = Player(146,HEIGHT - self._block_size - 100,50,50)
+        self._agent = Player(146,HEIGHT - self._block - 100,50,50)
+
         self._background, self._bg_image = get_background("Blue.png") 
-        self._fire = Fire(self._block_size * 7.5, HEIGHT - self._block_size * 2 - 64, 16, 32)
-        self._flag = Checkpoint(self._block_size * 17, HEIGHT - self._block_size - 128)
+        self._floor = [Block(i * self._block, HEIGHT - self._block, self._block) 
+                        for i in range(-WIDTH // self._block, (WIDTH*2) // self._block)] 
+        self._flag = Checkpoint(self._block * 9, HEIGHT - self._block - 128)
+        self._fire = Fire(self._block * 7.5, HEIGHT - self._block * 2 - 64, 16, 32)
         self._fire.on()
-        self.attacking_block = Flying_enemy(self._block_size * 9, HEIGHT - self._block_size - self._enemy_size * 3, self._enemy_size, self._enemy_size)
-        self.green_enemy = Green_enemy(self._block_size * 15, HEIGHT - self._block_size - self._green_enemy_size - self._spike_size, self._green_enemy_size, self._enemy_size)
-        self._fire.on()
-        self.attacking_block.fly()
-        self.green_enemy.movement(self._agent)
-        floor = [Block(i * self._block_size, HEIGHT - self._block_size, self._block_size)
-                for i in range(-WIDTH // self._block_size, (WIDTH * 2) // self._block_size)]
-        self._objects = [*floor, 
-                Block(self._block_size * -5, HEIGHT - self._block_size * 2, self._block_size),
-                Block(self._block_size * -5, HEIGHT - self._block_size * 3, self._block_size),
-                Block(self._block_size * 18, HEIGHT - self._block_size * 2, self._block_size),
-                Block(self._block_size * 18, HEIGHT - self._block_size * 3, self._block_size),
-                Block(self._block_size * 3, HEIGHT - self._block_size * 4, self._block_size),
-                Block(self._block_size * 4, HEIGHT - self._block_size * 4, self._block_size),
-                Block(self._block_size * 6, HEIGHT - self._block_size * 2, self._block_size),
-                Block(self._block_size * 7, HEIGHT - self._block_size * 2, self._block_size),
-                Spikes(self._block_size * 5 + self._spike_size * 2, HEIGHT - self._block_size - self._spike_size *2, self._spike_size, self._spike_size),
-                Spikes(self._block_size * 5 + self._spike_size * 4, HEIGHT - self._block_size - self._spike_size *2, self._spike_size, self._spike_size),
+        self._objects = [*self._floor, 
+                Block(self._block * -5, HEIGHT - self._block * 2, self._block),
+                Block(self._block * -5, HEIGHT - self._block * 3, self._block),
+                Block(self._block * 15, HEIGHT - self._block * 2, self._block),
+                Block(self._block * 15, HEIGHT - self._block * 3, self._block),
+                Block(self._block * 3, HEIGHT - self._block * 4, self._block),
+                Block(self._block * 4, HEIGHT - self._block * 4, self._block),
+                Block(self._block * 6, HEIGHT - self._block * 2, self._block),
+                Block(self._block * 7, HEIGHT - self._block * 2, self._block),
                 self._flag,
-                self.green_enemy,
-                self.attacking_block,
                 self._fire
                 ]
         return self.get_obs(), {}
 
     def step(self, action):
-        # clock.tick(FPS)
         self.truncated = False
         self.terminated = False
         reward = 0
-        distance = 0
-        penalty = 0
-        time_penalty = 0
         self._agent.loop(FPS)
         self._flag.loop()
         self._fire.loop()
-        self.attacking_block.loop()
-        self.green_enemy.loop(FPS)
         movement(self._agent, self._objects, action)
-        self.green_enemy.movement(self._agent)
         if ((self._agent.rect.right - self._x_offset >= WIDTH - self._screen_scroll_width and self._agent.x_vel > 0) 
             or (self._agent.rect.left - self._x_offset <= self._screen_scroll_width and self._agent.x_vel < 0)):
             self._x_offset += self._agent.x_vel
         self._steps += 1
 
         obs = self.get_obs()
-        distance += 10 / (math.sqrt(((self._flag.x - self._agent.rect.x)**2 
-                                    + (self._flag.y - self._agent.rect.y)**2)) 
-                                    + self._epsilon)
-        time_penalty += self._steps * -1
-        if self._agent.sprite_sheet == "hit":
-            penalty -= 10
-            reward = penalty + distance
+        reward += 100 / (math.sqrt(((self._block*7 - self._agent.rect.x)**2 + ((HEIGHT - self._block*4 - 50) - self._agent.rect.y)**2)) + self._epsilon)
+        if reward == 100:
             self.terminated = True
             return obs, reward, self.terminated, self.truncated, {}
-        if (math.sqrt(((self._flag.x - self._agent.rect.x)**2 
-                    + (self._flag.y - self._agent.rect.y)**2))) <= 3:
-            self.terminated = True
-            return obs, reward, self.terminated, self.truncated, {}
-        if self._steps >= 5000:
+        if self._steps >= 500:
             self.truncated = True
 
         draw(self._screen, self._background, self._bg_image, self._agent, self._objects, self._x_offset)
@@ -751,6 +693,7 @@ def sampling():
         
         while not terminated and not truncated:
             action = env.action_space.sample()
+            print(f"Sampled action: {action}")
             obs, reward, terminated, truncated, info = env.step(action)
             # env.render()
             for event in pygame.event.get():
@@ -762,39 +705,10 @@ def sampling():
 
     env.close()
 
-def train(env):
-    model = PPO("MlpPolicy", env, learning_rate=0.0001, n_steps=512, tensorboard_log="platformer_board")
-    model.learn(total_timesteps=10000)
-    model.save("platformer_agent")
-
-def test(env):
-    model = PPO.load("platformer_agent", env)
-    obs, info = env.reset()
-    total_reward = 0
-    for _ in range(10):
-        terminated = False
-        truncated = False
-        
-        while not terminated and not truncated:
-            action = model.predict(obs)
-            obs, reward, terminated, truncated, info = env.step(action)
-            total_reward += reward
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    terminated = True
-                    return
-        print(total_reward)
-        obs, info = env.reset()
-
-    env.close()
-
 if __name__ == "__main__":
-    # main(screen)
+    main(screen)
     env = Pls_learn()
     # check_env(env)
-    sampling()
-    # train(env)
-    # test(env)
-
+    # sampling()
 
 
