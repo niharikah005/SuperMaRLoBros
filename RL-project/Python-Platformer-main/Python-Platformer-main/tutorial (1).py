@@ -14,6 +14,7 @@ from gymnasium.wrappers import frame_stack
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.callbacks import EvalCallback
 
 
 pygame.init()
@@ -124,7 +125,7 @@ class Player(pygame.sprite.Sprite):
             self.fall_count = 0
 
     def loop(self, fps):
-        self.y_vel += min(2, (self.fall_count / fps) * self.GRAVITY)
+        self.y_vel += min(5, (self.fall_count / fps) * self.GRAVITY)
         self.move(self.x_vel, self.y_vel)
 
         if self.hit:
@@ -405,7 +406,7 @@ def draw(window, background, bg_image, player, objects, offset_x):
         obj.draw(window, offset_x)
 
     player.draw(window, offset_x)
-    clock.tick(FPS)
+    # clock.tick(FPS)
     pygame.display.update()
 
 
@@ -420,8 +421,9 @@ def handle_vertical_collision(player, objects, dy):
                         continue
                 player.rect.bottom = obj.rect.top
                 player.landed()
-            elif dy < 0:
+            elif dy < 0 and player.rect.bottom < HEIGHT - 100:
                 player.rect.top = obj.rect.bottom
+                print("collision ocured")
                 player.hit_head()
 
             collided_objects.append(obj)
@@ -604,32 +606,87 @@ class Pls_learn(gym.Env):
                                             shape=((REGION_SIZE*2 * REGION_SIZE*2),), 
                                             dtype=np.float32)
         
-        self._fire = Fire(self._block_size * 7.5, HEIGHT - self._block_size * 2 - 64, 16, 32)
-        self._flag = Checkpoint(self._block_size * 17, HEIGHT - self._block_size - 128)
-        self._fire.on()
-        self.attacking_block = Flying_enemy(self._block_size * 9, HEIGHT - self._block_size - self._enemy_size * 3, self._enemy_size, self._enemy_size)
-        self.green_enemy = Green_enemy(self._block_size * 15, HEIGHT - self._block_size - self._green_enemy_size - self._spike_size, self._green_enemy_size, self._enemy_size)
-        self._fire.on()
-        self.attacking_block.fly()
-        self.green_enemy.movement(self._agent)
+        self._fire1 = Fire(self._block_size * 19.5, HEIGHT - self._block_size * 1 - 64, 16, 32)
+        self._fire2 = Fire(self._block_size * 34.25, HEIGHT - self._block_size * 2 - 64, 16, 32)
+        self._fire3 = Fire(self._block_size * 44.5, HEIGHT - self._block_size * 1 - 64, 16, 32)
+
+        self._flag = Checkpoint(self._block_size * 60, HEIGHT - self._block_size - 128)
+
+        self._fire1.on()
+        self._fire2.on()
+        self._fire3.on()
+
+        self._attacking_block1 = Flying_enemy(self._block_size * 10, HEIGHT - self._block_size * 3 - self._enemy_size, self._enemy_size, self._enemy_size)
+        self._attacking_block2 = Flying_enemy(self._block_size * 24, HEIGHT - self._block_size * 2 - self._enemy_size, self._enemy_size, self._enemy_size)
+
+        self.green_enemy1 = Green_enemy(self._block_size * 15, HEIGHT - self._block_size - self._green_enemy_size - self._spike_size, self._green_enemy_size, self._enemy_size)
+        self.green_enemy2 = Green_enemy(self._block_size * 42, HEIGHT - self._block_size - self._green_enemy_size - self._spike_size, self._green_enemy_size, self._enemy_size)
+
+        self._fire1.on()
+        self._fire2.on()
+        self._fire3.on()
+
+        self._attacking_block1.fly()
+        self._attacking_block2.fly()
+
+        self.green_enemy1.movement(self._agent)
+        self.green_enemy2.movement(self._agent)
+
         floor = [Block(i * self._block_size, HEIGHT - self._block_size, self._block_size)
-                for i in range(0, (WIDTH * 3) // self._block_size)]
+             for i in range(0, (WIDTH * 6) // self._block_size)]
         self._objects = [*floor, 
-                Block(self._block_size * -5, HEIGHT - self._block_size * 2, self._block_size),
-                Block(self._block_size * -5, HEIGHT - self._block_size * 3, self._block_size),
-                Block(self._block_size * 18, HEIGHT - self._block_size * 2, self._block_size),
-                Block(self._block_size * 18, HEIGHT - self._block_size * 3, self._block_size),
-                Block(self._block_size * 3, HEIGHT - self._block_size * 4, self._block_size),
-                Block(self._block_size * 4, HEIGHT - self._block_size * 4, self._block_size),
-                Block(self._block_size * 6, HEIGHT - self._block_size * 2, self._block_size),
-                Block(self._block_size * 7, HEIGHT - self._block_size * 2, self._block_size),
-                Spikes(self._block_size * 5 + self._spike_size * 2, HEIGHT - self._block_size - self._spike_size *2, self._spike_size, self._spike_size),
-                Spikes(self._block_size * 5 + self._spike_size * 4, HEIGHT - self._block_size - self._spike_size *2, self._spike_size, self._spike_size),
-                self._flag,
-                self.green_enemy,
-                self.attacking_block,
-                self._fire
-                ]
+           Block(self._block_size * 3, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 6, HEIGHT - self._block_size * 2, self._block_size), 
+           Block(self._block_size * 7, HEIGHT - self._block_size * 2, self._block_size),
+           # fire1 is there on these blocks
+           Block(self._block_size * 8, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 9, HEIGHT - self._block_size * 3, self._block_size),  
+           Block(self._block_size * 11, HEIGHT - self._block_size * 3, self._block_size), 
+           Block(self._block_size * 13, HEIGHT - self._block_size * 3, self._block_size),
+           Block(self._block_size * 15, HEIGHT - self._block_size * 3, self._block_size),
+           Block(self._block_size * 18, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 20, HEIGHT - self._block_size * 3, self._block_size),  
+           Block(self._block_size * 27, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 29, HEIGHT - self._block_size * 3, self._block_size),  
+           Block(self._block_size * 33, HEIGHT - self._block_size * 2, self._block_size),
+           Block(self._block_size * 34, HEIGHT - self._block_size * 2, self._block_size),
+           Block(self._block_size * 35, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 36, HEIGHT - self._block_size * 3, self._block_size),   
+           Block(self._block_size * 47, HEIGHT - self._block_size * 2, self._block_size),  
+
+           # for the steps block
+           Block(self._block_size * 51, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 52, HEIGHT - self._block_size * 2, self._block_size),
+           Block(self._block_size * 52, HEIGHT - self._block_size * 3, self._block_size), 
+           Block(self._block_size * 53, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 53, HEIGHT - self._block_size * 3, self._block_size),  
+           Block(self._block_size * 53, HEIGHT - self._block_size * 4, self._block_size),  
+           Block(self._block_size * 54, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 54, HEIGHT - self._block_size * 3, self._block_size),  
+           Block(self._block_size * 54, HEIGHT - self._block_size * 4, self._block_size),  
+           Block(self._block_size * 54, HEIGHT - self._block_size * 5, self._block_size),
+           Block(self._block_size * 55, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 55, HEIGHT - self._block_size * 3, self._block_size),  
+           Block(self._block_size * 55, HEIGHT - self._block_size * 4, self._block_size),  
+           Block(self._block_size * 55, HEIGHT - self._block_size * 5, self._block_size),  
+
+        #    Spikes(self._block_size * 5, HEIGHT - self._block_size - self._spike_size * 2, self._spike_size, self._spike_size),
+           Spikes(self._block_size * 5 + self._spike_size * 2, HEIGHT - self._block_size - self._spike_size * 2, self._spike_size, self._spike_size),
+           Spikes(self._block_size * 5 + self._spike_size * 4, HEIGHT - self._block_size - self._spike_size * 2, self._spike_size, self._spike_size),
+
+           Spikes(self._block_size * 28, HEIGHT - self._block_size - self._spike_size * 2, self._spike_size, self._spike_size),
+           Spikes(self._block_size * 28 + self._spike_size * 2, HEIGHT - self._block_size - self._spike_size * 2, self._spike_size, self._spike_size),
+           Spikes(self._block_size * 28 + self._spike_size * 4, HEIGHT - self._block_size - self._spike_size * 2, self._spike_size, self._spike_size), 
+
+           self._flag,
+           self.green_enemy1,
+           self.green_enemy2,
+           self._attacking_block1,
+           self._attacking_block2,
+           self._fire1,
+           self._fire2,
+           self._fire3
+           ]
 
     
     def reset(self, seed=None):
@@ -638,33 +695,90 @@ class Pls_learn(gym.Env):
         self._steps = 0
         self._x_offset = 0
         self._agent = Player(146,HEIGHT - self._block_size - 100,50,50)
-        self._background, self._bg_image = get_background("Blue.png") 
-        self._fire = Fire(self._block_size * 7.5, HEIGHT - self._block_size * 2 - 64, 16, 32)
-        self._flag = Checkpoint(self._block_size * 17, HEIGHT - self._block_size - 128)
-        self._fire.on()
-        self.attacking_block = Flying_enemy(self._block_size * 9, HEIGHT - self._block_size - self._enemy_size * 3, self._enemy_size, self._enemy_size)
-        self.green_enemy = Green_enemy(self._block_size * 15, HEIGHT - self._block_size - self._green_enemy_size - self._spike_size, self._green_enemy_size, self._enemy_size)
-        self._fire.on()
-        self.attacking_block.fly()
-        self.green_enemy.movement(self._agent)
+        self._background, self._bg_image = get_background("Blue.png")        
+
+        self._fire1 = Fire(self._block_size * 19.5, HEIGHT - self._block_size * 1 - 64, 16, 32)
+        self._fire2 = Fire(self._block_size * 34.25, HEIGHT - self._block_size * 2 - 64, 16, 32)
+        self._fire3 = Fire(self._block_size * 44.5, HEIGHT - self._block_size * 1 - 64, 16, 32)
+
+        self._flag = Checkpoint(self._block_size * 60, HEIGHT - self._block_size - 128)
+
+        self._fire1.on()
+        self._fire2.on()
+        self._fire3.on()
+
+        self._attacking_block1 = Flying_enemy(self._block_size * 10, HEIGHT - self._block_size * 3 - self._enemy_size, self._enemy_size, self._enemy_size)
+        self._attacking_block2 = Flying_enemy(self._block_size * 24, HEIGHT - self._block_size * 2 - self._enemy_size, self._enemy_size, self._enemy_size)
+
+        self.green_enemy1 = Green_enemy(self._block_size * 15, HEIGHT - self._block_size - self._green_enemy_size - self._spike_size, self._green_enemy_size, self._enemy_size)
+        self.green_enemy2 = Green_enemy(self._block_size * 42, HEIGHT - self._block_size - self._green_enemy_size - self._spike_size, self._green_enemy_size, self._enemy_size)
+
+        self._fire1.on()
+        self._fire2.on()
+        self._fire3.on()
+
+        self._attacking_block1.fly()
+        self._attacking_block2.fly()
+
+        self.green_enemy1.movement(self._agent)
+        self.green_enemy2.movement(self._agent)
+
         floor = [Block(i * self._block_size, HEIGHT - self._block_size, self._block_size)
-                for i in range(-WIDTH // self._block_size, (WIDTH * 2) // self._block_size)]
+             for i in range(0, (WIDTH * 6) // self._block_size)]
         self._objects = [*floor, 
-                Block(self._block_size * -5, HEIGHT - self._block_size * 2, self._block_size),
-                Block(self._block_size * -5, HEIGHT - self._block_size * 3, self._block_size),
-                Block(self._block_size * 18, HEIGHT - self._block_size * 2, self._block_size),
-                Block(self._block_size * 18, HEIGHT - self._block_size * 3, self._block_size),
-                Block(self._block_size * 3, HEIGHT - self._block_size * 4, self._block_size),
-                Block(self._block_size * 4, HEIGHT - self._block_size * 4, self._block_size),
-                Block(self._block_size * 6, HEIGHT - self._block_size * 2, self._block_size),
-                Block(self._block_size * 7, HEIGHT - self._block_size * 2, self._block_size),
-                Spikes(self._block_size * 5 + self._spike_size * 2, HEIGHT - self._block_size - self._spike_size *2, self._spike_size, self._spike_size),
-                Spikes(self._block_size * 5 + self._spike_size * 4, HEIGHT - self._block_size - self._spike_size *2, self._spike_size, self._spike_size),
-                self._flag,
-                self.green_enemy,
-                self.attacking_block,
-                self._fire
-                ]
+           Block(self._block_size * 3, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 6, HEIGHT - self._block_size * 2, self._block_size), 
+           Block(self._block_size * 7, HEIGHT - self._block_size * 2, self._block_size),
+           # fire1 is there on these blocks
+           Block(self._block_size * 8, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 9, HEIGHT - self._block_size * 3, self._block_size),  
+           Block(self._block_size * 11, HEIGHT - self._block_size * 3, self._block_size), 
+           Block(self._block_size * 13, HEIGHT - self._block_size * 3, self._block_size),
+           Block(self._block_size * 15, HEIGHT - self._block_size * 3, self._block_size),
+           Block(self._block_size * 18, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 20, HEIGHT - self._block_size * 3, self._block_size),  
+           Block(self._block_size * 27, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 29, HEIGHT - self._block_size * 3, self._block_size),  
+           Block(self._block_size * 33, HEIGHT - self._block_size * 2, self._block_size),
+           Block(self._block_size * 34, HEIGHT - self._block_size * 2, self._block_size),
+           Block(self._block_size * 35, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 36, HEIGHT - self._block_size * 3, self._block_size),   
+           Block(self._block_size * 47, HEIGHT - self._block_size * 2, self._block_size),  
+
+           # for the steps block
+           Block(self._block_size * 51, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 52, HEIGHT - self._block_size * 2, self._block_size),
+           Block(self._block_size * 52, HEIGHT - self._block_size * 3, self._block_size), 
+           Block(self._block_size * 53, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 53, HEIGHT - self._block_size * 3, self._block_size),  
+           Block(self._block_size * 53, HEIGHT - self._block_size * 4, self._block_size),  
+           Block(self._block_size * 54, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 54, HEIGHT - self._block_size * 3, self._block_size),  
+           Block(self._block_size * 54, HEIGHT - self._block_size * 4, self._block_size),  
+           Block(self._block_size * 54, HEIGHT - self._block_size * 5, self._block_size),
+           Block(self._block_size * 55, HEIGHT - self._block_size * 2, self._block_size),  
+           Block(self._block_size * 55, HEIGHT - self._block_size * 3, self._block_size),  
+           Block(self._block_size * 55, HEIGHT - self._block_size * 4, self._block_size),  
+           Block(self._block_size * 55, HEIGHT - self._block_size * 5, self._block_size),  
+
+        #    Spikes(self._block_size * 5, HEIGHT - self._block_size - self._spike_size * 2, self._spike_size, self._spike_size),
+           Spikes(self._block_size * 5 + self._spike_size * 2, HEIGHT - self._block_size - self._spike_size * 2, self._spike_size, self._spike_size),
+           Spikes(self._block_size * 5 + self._spike_size * 4, HEIGHT - self._block_size - self._spike_size * 2, self._spike_size, self._spike_size),
+
+           Spikes(self._block_size * 28, HEIGHT - self._block_size - self._spike_size * 2, self._spike_size, self._spike_size),
+           Spikes(self._block_size * 28 + self._spike_size * 2, HEIGHT - self._block_size - self._spike_size * 2, self._spike_size, self._spike_size),
+           Spikes(self._block_size * 28 + self._spike_size * 4, HEIGHT - self._block_size - self._spike_size * 2, self._spike_size, self._spike_size), 
+
+           self._flag,
+           self.green_enemy1,
+           self.green_enemy2,
+           self._attacking_block1,
+           self._attacking_block2,
+           self._fire1,
+           self._fire2,
+           self._fire3
+           ]
+
         return self.get_obs(), {}
 
     def step(self, action):
@@ -674,14 +788,26 @@ class Pls_learn(gym.Env):
         reward = 0
         distance = 0
         penalty = 0
-        time_penalty = 0
+        time_penalty = -2
         self._agent.loop(FPS)
         self._flag.loop()
-        self._fire.loop()
-        self.attacking_block.loop()
-        self.green_enemy.loop(FPS)
+
+        self._fire1.loop()
+        self._fire2.loop()
+        self._fire3.loop()
+
+        self._attacking_block1.loop()
+        self._attacking_block2.loop()
+
+        self.green_enemy1.loop(FPS)
+        self.green_enemy2.loop(FPS)
+
         movement(self._agent, self._objects, action)
-        self.green_enemy.movement(self._agent)
+        if self._agent.rect.y >= HEIGHT - self._block_size:
+            print(self._agent.rect.y)
+        self.green_enemy1.movement(self._agent)
+        self.green_enemy2.movement(self._agent)
+
         if ((self._agent.rect.right - self._x_offset >= WIDTH - self._screen_scroll_width and self._agent.x_vel > 0) 
             or (self._agent.rect.left - self._x_offset <= self._screen_scroll_width and self._agent.x_vel < 0)):
             self._x_offset += self._agent.x_vel
@@ -691,12 +817,14 @@ class Pls_learn(gym.Env):
         distance += 10 / (math.sqrt(((self._flag.x - self._agent.rect.x)**2 
                                     + (self._flag.y - self._agent.rect.y)**2)) 
                                     + self._epsilon)
-        time_penalty += self._steps * -1
         if self._agent.sprite_sheet == "hit":
             penalty -= 10
             reward = penalty + distance
             self.terminated = True
             return obs, reward, self.terminated, self.truncated, {}
+        
+        reward = distance + time_penalty
+
         if (math.sqrt(((self._flag.x - self._agent.rect.x)**2 
                     + (self._flag.y - self._agent.rect.y)**2))) <= 3:
             self.terminated = True
@@ -727,7 +855,7 @@ class Pls_learn(gym.Env):
 
         # If the cropped region is smaller than expected, resize it safely
         if cropped.size == 0:
-            return np.zeros((REGION_SIZE*2, REGION_SIZE*2, 3)) / 255.0  # Return a black region
+            return np.zeros((REGION_SIZE*2* REGION_SIZE*2)) / 255.0  # Return a black region
 
         # Resize to the required shape and normalize
         resized = cv2.resize(cropped, (REGION_SIZE * 2, REGION_SIZE * 2))
@@ -762,10 +890,37 @@ def sampling():
 
     env.close()
 
-def train(env):
-    model = PPO("MlpPolicy", env, learning_rate=0.0001, n_steps=512, tensorboard_log="platformer_board", verbose=1)
-    model.learn(total_timesteps=10000)
-    model.save("platformer_agent")
+def train(env, steps):
+    env = DummyVecEnv([lambda: Pls_learn()])  
+
+    # log_dir = "logs/"
+    # os.makedirs(log_dir, exist_ok=True)
+   
+    # model_params = {
+    #     "policy": "MlpPolicy",  
+    #     "env": env,             
+    #     "learning_rate": 0.0003,  
+    #     "n_steps": 2048,        
+    #     "batch_size": 64,       
+    #     "n_epochs": 10,         
+    #     "gamma": 0.99,          
+    #     "gae_lambda": 0.95,     
+    #     "clip_range": 0.2,      
+    #     "verbose": 1,          
+    #     "tensorboard_log": log_dir 
+    # }
+
+    model = PPO("MlpPolicy", env, learning_rate=0.0002, n_steps=1024, tensorboard_log="platformer_board", verbose=1)
+
+    # eval_callback = EvalCallback(env, best_model_save_path='logs/', log_path='logs/', eval_freq=1000, deterministic=True, render=False)
+
+    # check_env(env)
+
+    model = PPO.load("platformer_agent", env)
+
+    model.learn(total_timesteps = steps)
+    model.save("platformer-load50k-50k")
+
 
 def test(env):
     model = PPO.load("platformer_agent", env)
@@ -793,8 +948,5 @@ if __name__ == "__main__":
     env = Pls_learn()
     # check_env(env)
     # sampling()
-    train(env)
-    # test(env)
-
-
-
+    train(env, steps=50000)
+    test(env)
