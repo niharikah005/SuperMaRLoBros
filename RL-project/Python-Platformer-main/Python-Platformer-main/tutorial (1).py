@@ -112,6 +112,7 @@ class Player(pygame.sprite.Sprite):
 
     def move_right(self, vel):
         self.x_vel = vel
+        # print(self.x_vel, 'hijf')
         if self.direction != "right":
             self.direction = "right"
             self.animation_count = 0
@@ -123,6 +124,7 @@ class Player(pygame.sprite.Sprite):
         self.jump_count += 1
         if self.jump_count == 1:
             self.fall_count = 0
+        # print(self.x_vel, 'hefjd')
 
     def loop(self, fps):
         self.y_vel += min(5, (self.fall_count / fps) * self.GRAVITY)
@@ -485,14 +487,16 @@ def movement(player, objects, action):
 
     if action == 0 and not collide_right:
         player.move_right(PLAYER_VEL)
-    if action == 1 and player.jump_count < 2:
+    elif action == 1 and player.jump_count < 2:
         if player.is_jumping:
             player.move_right(PLAYER_VEL)
         player.jump()
-    if action == 2 and not collide_right and player.jump_count < 2:
+    elif action == 2 and not collide_right and player.jump_count < 2:
         player.jump()
         player.move_right(PLAYER_VEL)
         player.is_jumping = True
+    else:
+        print('warning!!')
 
     vertical_collide = handle_vertical_collision(player, objects, player.y_vel)
     to_check = [*vertical_collide]
@@ -616,10 +620,10 @@ class Pls_learn(gym.Env):
         self._fire2.on()
         self._fire3.on()
 
-        self._attacking_block1 = Flying_enemy(self._block_size * 10, HEIGHT - self._block_size * 3 - self._enemy_size, self._enemy_size, self._enemy_size)
+        self._attacking_block1 = Flying_enemy(self._block_size * 10, HEIGHT - self._block_size * 3.5 - self._enemy_size, self._enemy_size, self._enemy_size)
         self._attacking_block2 = Flying_enemy(self._block_size * 24, HEIGHT - self._block_size * 2 - self._enemy_size, self._enemy_size, self._enemy_size)
 
-        self.green_enemy1 = Green_enemy(self._block_size * 15, HEIGHT - self._block_size - self._green_enemy_size - self._spike_size, self._green_enemy_size, self._enemy_size)
+        self.green_enemy1 = Green_enemy(self._block_size * 17, HEIGHT - self._block_size - self._green_enemy_size - self._spike_size, self._green_enemy_size, self._enemy_size)
         self.green_enemy2 = Green_enemy(self._block_size * 42, HEIGHT - self._block_size - self._green_enemy_size - self._spike_size, self._green_enemy_size, self._enemy_size)
 
         self._fire1.on()
@@ -642,8 +646,8 @@ class Pls_learn(gym.Env):
            Block(self._block_size * 8, HEIGHT - self._block_size * 2, self._block_size),  
            Block(self._block_size * 9, HEIGHT - self._block_size * 3, self._block_size),  
            Block(self._block_size * 11, HEIGHT - self._block_size * 3, self._block_size), 
-           Block(self._block_size * 13, HEIGHT - self._block_size * 3, self._block_size),
-           Block(self._block_size * 15, HEIGHT - self._block_size * 3, self._block_size),
+        #    Block(self._block_size * 13, HEIGHT - self._block_size * 3, self._block_size),
+        #    Block(self._block_size * 15, HEIGHT - self._block_size * 3, self._block_size),
            Block(self._block_size * 18, HEIGHT - self._block_size * 2, self._block_size),  
            Block(self._block_size * 20, HEIGHT - self._block_size * 3, self._block_size),  
            Block(self._block_size * 27, HEIGHT - self._block_size * 2, self._block_size),  
@@ -707,10 +711,10 @@ class Pls_learn(gym.Env):
         self._fire2.on()
         self._fire3.on()
 
-        self._attacking_block1 = Flying_enemy(self._block_size * 10, HEIGHT - self._block_size * 3 - self._enemy_size, self._enemy_size, self._enemy_size)
+        self._attacking_block1 = Flying_enemy(self._block_size * 10, HEIGHT - self._block_size * 3.5 - self._enemy_size, self._enemy_size, self._enemy_size)
         self._attacking_block2 = Flying_enemy(self._block_size * 24, HEIGHT - self._block_size * 2 - self._enemy_size, self._enemy_size, self._enemy_size)
 
-        self.green_enemy1 = Green_enemy(self._block_size * 15, HEIGHT - self._block_size - self._green_enemy_size - self._spike_size, self._green_enemy_size, self._enemy_size)
+        self.green_enemy1 = Green_enemy(self._block_size * 17, HEIGHT - self._block_size - self._green_enemy_size - self._spike_size, self._green_enemy_size, self._enemy_size)
         self.green_enemy2 = Green_enemy(self._block_size * 42, HEIGHT - self._block_size - self._green_enemy_size - self._spike_size, self._green_enemy_size, self._enemy_size)
 
         self._fire1.on()
@@ -733,8 +737,8 @@ class Pls_learn(gym.Env):
            Block(self._block_size * 8, HEIGHT - self._block_size * 2, self._block_size),  
            Block(self._block_size * 9, HEIGHT - self._block_size * 3, self._block_size),  
            Block(self._block_size * 11, HEIGHT - self._block_size * 3, self._block_size), 
-           Block(self._block_size * 13, HEIGHT - self._block_size * 3, self._block_size),
-           Block(self._block_size * 15, HEIGHT - self._block_size * 3, self._block_size),
+        #    Block(self._block_size * 13, HEIGHT - self._block_size * 3, self._block_size),
+        #    Block(self._block_size * 15, HEIGHT - self._block_size * 3, self._block_size),
            Block(self._block_size * 18, HEIGHT - self._block_size * 2, self._block_size),  
            Block(self._block_size * 20, HEIGHT - self._block_size * 3, self._block_size),  
            Block(self._block_size * 27, HEIGHT - self._block_size * 2, self._block_size),  
@@ -803,20 +807,27 @@ class Pls_learn(gym.Env):
         self.green_enemy2.loop(FPS)
 
         movement(self._agent, self._objects, action)
+        # if player went below the floor
         if self._agent.rect.y >= HEIGHT - self._block_size:
             print(self._agent.rect.y)
+        
         self.green_enemy1.movement(self._agent)
         self.green_enemy2.movement(self._agent)
 
         if ((self._agent.rect.right - self._x_offset >= WIDTH - self._screen_scroll_width and self._agent.x_vel > 0) 
             or (self._agent.rect.left - self._x_offset <= self._screen_scroll_width and self._agent.x_vel < 0)):
             self._x_offset += self._agent.x_vel
+
         self._steps += 1
 
         obs = self.get_obs()
+
         distance += 10 / (math.sqrt(((self._flag.x - self._agent.rect.x)**2 
                                     + (self._flag.y - self._agent.rect.y)**2)) 
                                     + self._epsilon)
+        
+        # time_penalty += self._steps * -1
+        
         if self._agent.sprite_sheet == "hit":
             penalty -= 10
             reward = penalty + distance
@@ -825,10 +836,13 @@ class Pls_learn(gym.Env):
         
         reward = distance + time_penalty
 
+        # print(self._agent.x_vel,'ehejfkn',self._agent.y_vel)
+
         if (math.sqrt(((self._flag.x - self._agent.rect.x)**2 
                     + (self._flag.y - self._agent.rect.y)**2))) <= 3:
             self.terminated = True
             return obs, reward, self.terminated, self.truncated, {}
+        
         if self._steps >= 5000:
             self.truncated = True
 
@@ -845,7 +859,7 @@ class Pls_learn(gym.Env):
         surface = pygame.surfarray.array3d(self._screen)  # Get the RGB array of the screen
         x, y = self._agent.rect.center  # Get the player's center coordinates
 
-        # Ensure that the cropping does not go out of bounds
+        # Ensure that the cropping does not go out of bounds, constraints
         min_x = max(0, x - REGION_SIZE)
         max_x = min(surface.shape[0], x + REGION_SIZE)
         min_y = max(0, y - REGION_SIZE)
@@ -857,11 +871,11 @@ class Pls_learn(gym.Env):
         if cropped.size == 0:
             return np.zeros((REGION_SIZE*2* REGION_SIZE*2)) / 255.0  # Return a black region
 
-        # Resize to the required shape and normalize
+        # resize and normalize
         resized = cv2.resize(cropped, (REGION_SIZE * 2, REGION_SIZE * 2))
         resized = cv2.cvtColor(resized, cv2.COLOR_RGB2GRAY)
         flattened = resized.flatten()
-        # Normalize the resized image
+
         return flattened
 
     def close(self):
@@ -919,21 +933,27 @@ def train(env, steps):
     model = PPO.load("platformer_agent", env)
 
     model.learn(total_timesteps = steps)
-    model.save("platformer-load50k-50k")
+    model.save("platformer-load250k-10k")
 
 
 def test(env):
-    model = PPO.load("platformer_agent", env)
+    # env = DummyVecEnv([lambda: Pls_learn()])  
+    # model = PPO("MlpPolicy", env, verbose=1) 
+    model = PPO.load("platformer-load50k-50k.zip", env=env)
     obs, info = env.reset()
     total_reward = 0
     for _ in range(10):
         terminated = False
         truncated = False
-        
+        obs = np.array(obs)
         while not terminated and not truncated:
-            action = model.predict(obs)
+            # print(len(obs[0]), len(obs[1]))
+            action, _ = model.predict(obs)
+            # print(action)
+
             obs, reward, terminated, truncated, info = env.step(action)
             total_reward += reward
+            print(reward,'rew')
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     terminated = True
@@ -948,5 +968,5 @@ if __name__ == "__main__":
     env = Pls_learn()
     # check_env(env)
     # sampling()
-    train(env, steps=50000)
+    # train(env, steps=10000)
     test(env)
