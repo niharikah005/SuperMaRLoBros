@@ -119,8 +119,7 @@ Additionally, PPO performs well across a variety of continuous and discrete acti
 The basic **policy gradient** can be expressed as:
 
 $$
-\text{PPO}
-L^{(\nabla_\theta) \text{J}}(\theta) = \mathbb{E}_{\tau \sim \pi_\theta} \left[ \nabla_\theta \log \pi_\theta(a_t|s_t) \cdot \hat{A}(s_t, a_t) \right]
+\nabla_\theta \text{J}(\theta) = \mathbb{E}_{\tau \sim \pi_\theta} \left[ \nabla_\theta \log \pi_\theta(a_t|s_t) \cdot \hat{A}(s_t, a_t) \right]
 $$
 
 Where:
