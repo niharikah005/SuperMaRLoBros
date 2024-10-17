@@ -152,8 +152,13 @@ Papers referred about Reinforcement Learning:
 
 # RESULTS
 
-
 ### Agent Output
+
+<video width="600" controls>
+  <source src="vid.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
 ![](vid.mp4)
 [Download the video](vid.mp4)
 
