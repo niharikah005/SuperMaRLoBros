@@ -43,6 +43,7 @@ We have used both MLP network and CNN network in the processing of the observati
 ---
 
 ## File Structure
+```
 📦SuperMaRLoBros:
 
  ┣ 📂assets                                        # Contains gifs, objs and images of the results 
@@ -56,7 +57,7 @@ We have used both MLP network and CNN network in the processing of the observati
  ┣ 📜project_report.docx                           # Project Report
  
  ┗ 📜requirements.txt                              # Requirements
-
+```
 ---
 
 # Requirements:
