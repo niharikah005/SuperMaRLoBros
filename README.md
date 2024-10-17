@@ -7,7 +7,7 @@ Super MaRLo Bros: Making the use of Reinforcement Larning  algorithms to train a
 - [Requirements](#Requirements)
   - [Prerequisites and installlation](#Prerequisites-and-installlation)
   - [Execution](#Execution)
-- [Theory and Approach](#Theory-and-Approach)
+- [Theory and Approach](#Theory-and-Approach) 
 -  [Results and Demo](#Results-and-Demo)
 -  [Future Work](#Future-Work)
 -  [Contributors](#Contributors)
@@ -28,7 +28,7 @@ We have used both MLP network and CNN network in the processing of the observati
 - [Pytorch](https://pytorch.org/)
 - [Pygame](https://www.pygame.org/news)
 - [Gym](https://www.gymlibrary.dev/content/environment_creation/) (for the model-environment)
-- [StableBaseline3] 
+- [StableBaseline3](https://stable-baselines3.readthedocs.io/en/master/)
 
 ## File Structure
 
@@ -124,13 +124,14 @@ $$
 
 Where:
 
-- **Probability Ratio**: The term \( r_t(\theta) \) represents the ratio of the probabilities of taking action \( a_t \) in state \( s_t \) under the new policy \( \pi_\theta \) compared to the old policy \( \pi_{\theta_{\text{old}}} \). This ratio is crucial for understanding how much the policy has changed between updates.
+- **## Probability Ratio**: The term \( r_t(\theta) \) represents the ratio between the probability of taking action \( a_t \) in state \( s_t \) under the updated policy \( \pi_\theta \), and the probability of taking the same action under the previous policy \( \pi_{\theta_{\text{old}}} \). This ratio plays a key role in evaluating how much the policy has changed between updates.
 
-- **Advantage Estimate**: The symbol \( \hat{A}_t \) refers to the advantage estimate at time step \( t \). The advantage function provides a measure of how much better or worse taking a specific action \( a_t \) is compared to the average action expected in that state. It helps guide the policy towards actions that yield better outcomes.
+- **Advantage Estimate**: \( \hat{A}_t \) denotes the advantage estimate at time step \( t \). The advantage function evaluates how much better (or worse) taking action \( a_t \) is compared to the expected average action in that state. This estimate helps steer the policy towards actions with better outcomes.
 
-- **Hyperparameter \( \epsilon \)**: The parameter \( \epsilon \) is a hyperparameter that regulates the extent to which the policy can change during the update process. By controlling the changes in the policy, \( \epsilon \) helps maintain stability during training.
+- **Hyperparameter \( \epsilon \)**: The hyperparameter \( \epsilon \) controls the extent of policy changes during updates, ensuring stability in the training process by limiting the size of these changes.
 
-- **Clipping Mechanism**: The function \( \text{clip}(r_t(\theta), 1 - \epsilon, 1 + \epsilon) \) applies a clipping mechanism to the probability ratio. This means that it restricts the value of the ratio to a range defined by \( 1 - \epsilon \) and \( 1 + \epsilon \). 
+- **Clipping Mechanism**: The function \( \text{clip}(r_t(\theta), 1 - \epsilon, 1 + \epsilon) \) applies a clipping mechanism to the probability ratio, constraining it within the range \( [1 - \epsilon, 1 + \epsilon] \). This prevents excessively large updates that could destabilize training.
+
 
 ### Explanation:
 - **First term** This is the basic policy gradient term, where the advantage is scaled by the likelihood ratio \( r_t(\theta) \).
