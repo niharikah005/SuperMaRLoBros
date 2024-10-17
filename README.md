@@ -119,14 +119,14 @@ Additionally, PPO performs well across a variety of continuous and discrete acti
 The basic **policy gradient** can be expressed as:
 
 $$
-\nabla_\theta J(\theta) = \mathbb{E}_{\tau \sim \pi_\theta} \left[ \nabla_\theta \log \pi_\theta(a|s) \cdot \hat{A}(s, a) \right]
+\nabla_\theta J(\theta) = \mathbb{E}_{\tau \sim \pi_\theta} \left[\nabla_\theta \log \pi_\theta(a|s) \cdot \hat{A}(s, a) \right]
 $$
 
 Where:
-- \( J(\theta) \) is the objective function (expected return).
-- \( \pi_\theta(a|s) \) is the policy parameterized by \( \theta \).
-- \( \nabla_\theta \log \pi_\theta(a|s) \) is the gradient of the log probability of taking action \( a \) in state \( s \).
-- \( \hat{A}(s, a) \) is the advantage function, which represents how much better the action is compared to the expected action.
+- $\( J(\theta) \) is the objective function (expected return).
+- $\( \pi_\theta(a|s) \) is the policy parameterized by \( \theta \).
+- $\( \nabla_\theta \log \pi_\theta(a|s) \) is the gradient of the log probability of taking action \( a \) in state \( s \).
+- $\( \hat{A}(s, a) \) is the advantage function, which represents how much better the action is compared to the expected action.
 
 ---
 
