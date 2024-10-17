@@ -45,17 +45,17 @@ We have used both MLP network and CNN network in the processing of the observati
 ## File Structure
 📦SuperMaRLoBros:
 
- ┣ 📂assets                            # Contains gifs, objs and images of the results 
+ ┣ 📂assets                                        # Contains gifs, objs and images of the results 
 
- ┣ 📂scripts                           # Python programs to run 
+ ┣ 📂scripts                                       # Python programs to run 
  
  ┣ 📜README.md
  
- ┣ 📜demo_video.gif                    # Demo Video
+ ┣ 📜demo_video.gif                                # Demo Video
  
- ┣ 📜project_report.docx               # Project Report
+ ┣ 📜project_report.docx                           # Project Report
  
- ┗ 📜requirements.txt                  # Requirements
+ ┗ 📜requirements.txt                              # Requirements
 
 ---
 
