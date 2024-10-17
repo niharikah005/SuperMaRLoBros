@@ -112,6 +112,48 @@ PPO achieves this by clipping the probability ratio between the new and old poli
 Additionally, PPO performs well across a variety of continuous and discrete action-space problems, making it a flexible choice for reinforcement learning tasks such as robotic control, game playing, and navigation in complex environments.
 
 
+* Explanation for why PPO is better than standard Policy algorithms
+
+### **1. Basic Policy Approximation Formula (Policy Gradient)**
+
+In **policy gradient methods**, the goal is to optimize a parameterized policy \( \pi_\theta(a|s) \), where \( \theta \) represents the parameters of the policy (such as weights of a neural network). The idea is to adjust the policy parameters \( \theta \) in a way that maximizes the expected cumulative reward.
+
+The basic policy gradient can be expressed as:
+
+\[
+\nabla_\theta J(\theta) = \mathbb{E}_{\tau \sim \pi_\theta} \left[ \nabla_\theta \log \pi_\theta(a|s) \cdot \hat{A}(s, a) \right]
+\]
+
+Where:
+- \( J(\theta) \) is the objective function, typically the expected return.
+- \( \tau \) is a trajectory (sequence of states, actions, and rewards).
+- \( \pi_\theta(a|s) \) is the policy that gives the probability of taking action \( a \) in state \( s \).
+- \( \nabla_\theta \log \pi_\theta(a|s) \) is the gradient of the log probability of the action under the current policy.
+- \( \hat{A}(s, a) \) is the **advantage function**, which measures how much better an action \( a \) in state \( s \) is compared to the expected action in that state (often the difference between the action-value \( Q(s, a) \) and the state-value \( V(s) \)).
+
+### **2. Proximal Policy Optimization (PPO) Formula**
+
+**PPO** builds upon policy gradient methods by incorporating a **clipping mechanism** to ensure that policy updates are not too large, which can destabilize training.
+
+The PPO objective can be written as:
+
+\[
+L^{\text{PPO}}(\theta) = \mathbb{E}_{t} \left[ \min \left( r_t(\theta) \hat{A}_t, \text{clip}(r_t(\theta), 1 - \epsilon, 1 + \epsilon) \hat{A}_t \right) \right]
+\]
+
+Where:
+- \( r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{\text{old}}}(a_t|s_t)} \) is the **probability ratio** between the new policy \( \pi_\theta \) and the old policy \( \pi_{\theta_{\text{old}}} \) before the update.
+- \( \hat{A}_t \) is the advantage estimate at time step \( t \).
+- \( \epsilon \) is a hyperparameter that controls how much change in the policy is allowed during each update.
+- The function \( \text{clip}(r_t(\theta), 1 - \epsilon, 1 + \epsilon) \) restricts the ratio \( r_t(\theta) \) to the range \( [1 - \epsilon, 1 + \epsilon] \).
+
+### Explanation:
+- **First term** \( r_t(\theta) \hat{A}_t \): This is the basic policy gradient term, where the advantage is scaled by the likelihood ratio \( r_t(\theta) \).
+- **Second term** \( \text{clip}(r_t(\theta), 1 - \epsilon, 1 + \epsilon) \hat{A}_t \): This term prevents the policy from being updated too aggressively by clipping the ratio to a range around 1. This ensures that the update does not deviate too much from the old policy.
+- **min**: PPO uses the minimum between the clipped and unclipped terms to ensure that the final objective discourages updates that deviate too much from the old policy.
+
+The clipping mechanism makes PPO more stable compared to standard policy gradient methods, preventing drastic policy changes and improving training reliability.
+
 Papers referred about Reinforcement Learning:
 [REINFORCEMENT_LEARNING_1](https://arxiv.org/abs/2304.00026)
 [REINFORCEMENT_LEARNING_2](https://ar5iv.labs.arxiv.org/html/1708.05866)
