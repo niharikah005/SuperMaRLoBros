@@ -154,7 +154,7 @@ Papers referred about Reinforcement Learning:
 
 
 ### Agent Output
-[Download the video](video.mp4)
+[Download the video](vid.mp4)
 
 
 # Future Work
