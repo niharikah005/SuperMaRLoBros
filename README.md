@@ -124,13 +124,15 @@ $$
 
 Where:
 
-- **## Probability Ratio**: The term \( r_t(\theta) \) represents the ratio between the probability of taking action \( a_t \) in state \( s_t \) under the updated policy \( \pi_\theta \), and the probability of taking the same action under the previous policy \( \pi_{\theta_{\text{old}}} \). This ratio plays a key role in evaluating how much the policy has changed between updates.
+## Probability Ratio
 
-- **Advantage Estimate**: \( \hat{A}_t \) denotes the advantage estimate at time step \( t \). The advantage function evaluates how much better (or worse) taking action \( a_t \) is compared to the expected average action in that state. This estimate helps steer the policy towards actions with better outcomes.
+The term `r_t(θ)` represents the ratio between the probability of taking action `a_t` in state `s_t` under the updated policy `π_θ`, and the probability of taking the same action under the previous policy `π_{θ_{old}}`. This ratio plays a key role in evaluating how much the policy has changed between updates.
 
-- **Hyperparameter \( \epsilon \)**: The hyperparameter \( \epsilon \) controls the extent of policy changes during updates, ensuring stability in the training process by limiting the size of these changes.
+- **Advantage Estimate**: `Â_t` denotes the advantage estimate at time step `t`. The advantage function evaluates how much better (or worse) taking action `a_t` is compared to the expected average action in that state. This estimate helps steer the policy towards actions with better outcomes.
 
-- **Clipping Mechanism**: The function \( \text{clip}(r_t(\theta), 1 - \epsilon, 1 + \epsilon) \) applies a clipping mechanism to the probability ratio, constraining it within the range \( [1 - \epsilon, 1 + \epsilon] \). This prevents excessively large updates that could destabilize training.
+- **Hyperparameter `ε`**: The hyperparameter `ε` controls the extent of policy changes during updates, ensuring stability in the training process by limiting the size of these changes.
+
+- **Clipping Mechanism**: The function `clip(r_t(θ), 1 - ε, 1 + ε)` applies a clipping mechanism to the probability ratio, constraining it within the range `[1 - ε, 1 + ε]`. This prevents excessively large updates that could destabilize training.
 
 
 ### Explanation:
