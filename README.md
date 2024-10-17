@@ -44,6 +44,7 @@ We have used both MLP network and CNN network in the processing of the observati
 
 ## File Structure
 📦SuperMaRLoBros:
+
  ┣ 📂assets                            # Contains gifs, objs and images of the results 
  ┣ 📂scripts                           # Python programs to run 
  ┣ 📜README.md
