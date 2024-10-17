@@ -104,44 +104,46 @@ git clone https://github.com/niharikah005/SuperMaRLoBros
 
 # Theory and Approach
 
-* For our project, Super MaRLo Bros, we have implemented a reinforcement learning architecture using model-free algorithm to train an AI agent capable of playing the game. This approach allows the agent to learn optimal strategies through trial and error, improving its performance over time without requiring a predefined model of the game environment. The use of these algorithms enables us to effectively handle the dynamic nature of gameplay, where the agent learns from its interactions and adapts its strategies accordingly.
+    - For our project, Super MaRLo Bros, we have implemented a reinforcement learning architecture using model-free algorithm to train an AI agent capable of playing the game. This approach allows the agent to learn optimal strategies through trial and error, improving its performance over time without requiring a predefined model of the game environment. The use of these algorithms enables us to effectively handle the dynamic nature of gameplay, where the agent learns from its interactions and adapts its strategies accordingly.
 
-In reinforcement learning (RL), a model-free algorithm is an approach where the agent learns to make decisions without having an explicit model of the environment. This means the agent does not try to predict the environment's behavior (e.g., state transitions or rewards); instead, it directly learns from its interactions with the environment to make decisions that maximize rewards.
+    - In reinforcement learning (RL), a model-free algorithm is an approach where the agent learns to make decisions without having an explicit model of the environment. This means the agent does not try to predict the environment's behavior (e.g., state transitions or rewards); instead, it directly learns from its interactions with the environment to make decisions that maximize rewards.
 
 
-Key Characteristics of Model-Free Algorithms:
+* Key Characteristics of Model-Free Algorithms:
 
-No Environment Model: The agent doesn't learn or assume how the environment works internally, such as how actions affect the state transitions or rewards.
-Direct Policy or Value Learning: The agent focuses on learning a policy (a mapping from states to actions) or value functions (estimating the long-term reward of being in a certain state or taking a certain action).
-Data-Driven: The agent relies on real experience (observed state transitions, rewards) to improve its decision-making.
+    - No Environment Model: The agent doesn't learn or assume how the environment works internally, such as how actions affect the state transitions or rewards.
+                            Direct Policy or Value Learning: The agent focuses on learning a policy (a mapping from states to actions)
+                            or value functions (estimating the long-term reward of being in a certain state or taking a certain action).
 
-Types of Model-Free Algorithms:
+    - Data-Driven: The agent relies on real experience (observed state transitions, rewards) to improve its decision-making.
 
-Value-Based Methods:
-These methods focus on estimating the value function, which tells how good it is to be in a certain state or to take a certain action.
+### Types of Model-Free Algorithms:
 
-Example:
-Q-learning: The agent learns an estimate of the Q-value (action-value function), which predicts the expected reward of taking an action in a given state and following the optimal policy afterward.
+* Value-Based Methods:
+    - These methods focus on estimating the value function, which tells how good it is to be in a certain state or to take a certain action.
 
-Policy-Based Methods:
-These methods directly learn the policy (the function that maps states to actions) without needing to estimate value functions.
+* Example:
+    - Q-learning: The agent learns an estimate of the Q-value (action-value function), which predicts the expected reward of taking an action in a given state and following the optimal policy afterward.
 
-Example:
-REINFORCE: This algorithm uses policy gradients to update the policy directly based on the rewards received.
+* Policy-Based Methods:
+    - These methods directly learn the policy (the function that maps states to actions) without needing to estimate value functions.
 
-Actor-Critic Methods:
-These combine both value-based and policy-based methods by having two components: an actor (which decides actions) and a critic (which evaluates how good the actions are).
+* Example:
+    - REINFORCE: This algorithm uses policy gradients to update the policy directly based on the rewards received.
 
-Example:
-Proximal Policy Optimization (PPO): A popular actor-critic algorithm that combines stability and performance.
+* Actor-Critic Methods:
+    - These combine both value-based and policy-based methods by having two components: an actor (which decides actions) and a critic (which evaluates how good the actions are).
+
+* Example:
+    - Proximal Policy Optimization (PPO): A popular actor-critic algorithm that combines stability and performance.
 
 ---
 
-We have used a **Policy function approximation algorithm** called **Proximal Policy Optimization (PPO)**. The reason we are using PPO is that it offers a balance between simplicity, efficiency, and performance. PPO is particularly popular because it addresses the instability issues seen in policy gradient methods by introducing a way to limit the magnitude of policy updates, ensuring more stable learning.
+* We have used a **Policy function approximation algorithm** called **Proximal Policy Optimization (PPO)**. The reason we are using PPO is that it offers a balance between simplicity, efficiency, and performance. PPO is particularly popular because it addresses the instability issues seen in policy gradient methods by introducing a way to limit the magnitude of policy updates, ensuring more stable learning.
 
-PPO achieves this by clipping the probability ratio between the new and old policies during training, preventing overly large updates that can harm performance. This results in smoother and more reliable training compared to older algorithms like vanilla policy gradient or trust region policy optimization (TRPO), while still being computationally efficient and easy to implement.
+* PPO achieves this by clipping the probability ratio between the new and old policies during training, preventing overly large updates that can harm performance. This results in smoother and more reliable training compared to older algorithms like vanilla policy gradient or trust region policy optimization (TRPO), while still being computationally efficient and easy to implement.
 
-Additionally, PPO performs well across a variety of continuous and discrete action-space problems, making it a flexible choice for reinforcement learning tasks such as robotic control, game playing, and navigation in complex environments.
+* Additionally, PPO performs well across a variety of continuous and discrete action-space problems, making it a flexible choice for reinforcement learning tasks such as robotic control, game playing, and navigation in complex environments.
 
 
 * Explanation for why PPO is better than standard Policy algorithms
@@ -155,9 +157,7 @@ $$
 
 Where:
 
-## Probability Ratio
-
-The term `r_t(θ)` represents the ratio between the probability of taking action `a_t` in state `s_t` under the updated policy `π_θ`, and the probability of taking the same action under the previous policy `π_{θ_{old}}`. This ratio plays a key role in evaluating how much the policy has changed between updates.
+ - **Probability Ratio**: The term `r_t(θ)` represents the ratio between the probability of taking action `a_t` in state `s_t` under the updated policy `π_θ`, and the probability of taking the same action under the previous policy `π_{θ_{old}}`. This ratio plays a key role in evaluating how much the policy has changed between updates.
 
 - **Advantage Estimate**: `Â_t` denotes the advantage estimate at time step `t`. The advantage function evaluates how much better (or worse) taking action `a_t` is compared to the expected average action in that state. This estimate helps steer the policy towards actions with better outcomes.
 
