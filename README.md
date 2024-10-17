@@ -177,18 +177,23 @@ The clipping mechanism makes PPO more stable compared to standard policy gradien
 
 ## How the Code functions:
 
-The main code is the Pls_learn class that creates the environment for the StableBaselines3 algorithm to interact with.
-First, an instance of the environment is created, which creates all the obstacles and the agent at its starting position.
+The main code is the `Pls_learn` class that creates the environment for the StableBaselines3 algorithm to interact with.
 
-Then the `reset` function is run, this function resets the environment after the end of each episode (from start to termination)
+1. First, an instance of the environment is created, which creates all the obstacles and the agent at its starting position.
 
-Then, the `step` function is run, this function allows the agent to take a step in the environment and thus interact with it. 
-This is also the function which calculates the rewards and termination
+2. Then the `reset` function is run, this function resets the environment after the end of each episode (from start to termination)
 
-Then, the `get_obs` function is run, this actually happens in the reset method as well. 
+3. Then, the `step` function is run, this function allows the agent to take a step in the environment and thus interact with it. 
+This is also the function which calculates the rewards and termination. It also renders the environment.
+
+4. Then, the `get_obs` function is run, this actually happens in the reset method as well. 
 This functions purpose is to return the obsvervation of the environment in such a way that the policy network is able to train its weights on it.
 
-Finally, we have written the `close` function, which is to clean up any temporary resources that were being used to prevent RAM leaks.
+5. Finally, we have written the `close` function, which is to clean up any temporary resources that were being used to prevent RAM leaks.
+
+The steps 3 and 4 loop continuously until the episode ends. Then step 2 is run again.
+
+Step 5 is for clean-up only.
 
 ---
 
