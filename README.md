@@ -114,23 +114,7 @@ Additionally, PPO performs well across a variety of continuous and discrete acti
 
 * Explanation for why PPO is better than standard Policy algorithms
 
-### **1. Basic Policy Approximation Formula (Policy Gradient)**
-
-The basic **policy gradient** can be expressed as:
-
-$$
-\nabla_\theta \text{J}(\theta) = \mathbb{E}_{\tau \sim \pi_\theta} \left[ \nabla_\theta \log \pi_\theta(a_t|s_t) \cdot \hat{A}(s_t, a_t) \right]
-$$
-
-Where:
-- $\( J(\theta) \) is the objective function (expected return).
-- $\( \pi_\theta(a|s) \) is the policy parameterized by \( \theta \).
-- $\( \nabla_\theta \log \pi_\theta(a|s) \) is the gradient of the log probability of taking action \( a \) in state \( s \).
-- $\( \hat{A}(s, a) \) is the advantage function, which represents how much better the action is compared to the expected action.
-
----
-
-### **2. Proximal Policy Optimization (PPO) Formula**
+### **1. Proximal Policy Optimization (PPO) Formula**
 
 The **PPO objective** is given by:
 
@@ -139,14 +123,18 @@ L^{\text{PPO}}(\theta) = \mathbb{E}_{t} \left[ \min \left( r_t(\theta) \hat{A}_t
 $$
 
 Where:
-- \( r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{\text{old}}}(a_t|s_t)} \) is the probability ratio between the new policy \( \pi_\theta \) and the old policy \( \pi_{\theta_{\text{old}}} \).
-- \( \hat{A}_t \) is the advantage estimate at time step \( t \).
-- \( \epsilon \) is a hyperparameter that controls how much the policy can change during updates.
-- \( \text{clip}(r_t(\theta), 1 - \epsilon, 1 + \epsilon) \) ensures the ratio is clipped to prevent large updates.
+
+- **Probability Ratio**: The term \( r_t(\theta) \) represents the ratio of the probabilities of taking action \( a_t \) in state \( s_t \) under the new policy \( \pi_\theta \) compared to the old policy \( \pi_{\theta_{\text{old}}} \). This ratio is crucial for understanding how much the policy has changed between updates.
+
+- **Advantage Estimate**: The symbol \( \hat{A}_t \) refers to the advantage estimate at time step \( t \). The advantage function provides a measure of how much better or worse taking a specific action \( a_t \) is compared to the average action expected in that state. It helps guide the policy towards actions that yield better outcomes.
+
+- **Hyperparameter \( \epsilon \)**: The parameter \( \epsilon \) is a hyperparameter that regulates the extent to which the policy can change during the update process. By controlling the changes in the policy, \( \epsilon \) helps maintain stability during training.
+
+- **Clipping Mechanism**: The function \( \text{clip}(r_t(\theta), 1 - \epsilon, 1 + \epsilon) \) applies a clipping mechanism to the probability ratio. This means that it restricts the value of the ratio to a range defined by \( 1 - \epsilon \) and \( 1 + \epsilon \). 
 
 ### Explanation:
-- **First term** \( r_t(\theta) \hat{A}_t \): This is the basic policy gradient term, where the advantage is scaled by the likelihood ratio \( r_t(\theta) \).
-- **Second term** \( \text{clip}(r_t(\theta), 1 - \epsilon, 1 + \epsilon) \hat{A}_t \): This term prevents the policy from being updated too aggressively by clipping the ratio to a range around 1. This ensures that the update does not deviate too much from the old policy.
+- **First term** This is the basic policy gradient term, where the advantage is scaled by the likelihood ratio \( r_t(\theta) \).
+- **Second term**: This term prevents the policy from being updated too aggressively by clipping the ratio to a range around 1. This ensures that the update does not deviate too much from the old policy.
 - **min**: PPO uses the minimum between the clipped and unclipped terms to ensure that the final objective discourages updates that deviate too much from the old policy.
 
 The clipping mechanism makes PPO more stable compared to standard policy gradient methods, preventing drastic policy changes and improving training reliability.
