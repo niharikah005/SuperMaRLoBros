@@ -150,14 +150,12 @@ Papers referred about Reinforcement Learning:
 [REINFORCEMENT_LEARNING_2](https://ar5iv.labs.arxiv.org/html/1708.05866)
 
 
-# Results and Demo
-
-### Original Game
-![]()
+# RESULTS
 
 
 ### Agent Output
-![]() 
+[Download the video](video.mp4)
+
 
 # Future Work
 
