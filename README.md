@@ -215,7 +215,7 @@ Papers referred about Reinforcement Learning:
   Your browser does not support the video tag.
 </video>
 
-![](vid.mp4)
+![]("final-level-completed.gif")
 [Download the video](vid.mp4)
 
 ---
