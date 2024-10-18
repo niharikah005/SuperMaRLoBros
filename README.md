@@ -210,12 +210,14 @@ Papers referred about Reinforcement Learning:
 
 ### Agent Output
 
+![]("final-level-completed.gif")
+
 <video width="600" controls>
   <source src="vid.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
-![]("final-level-completed.gif")
+
 [Download the video](vid.mp4)
 
 ---
