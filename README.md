@@ -210,7 +210,7 @@ Papers referred about Reinforcement Learning:
 
 ### Agent Output
 
-![](final-level-completed.gif)
+![](https://github.com/ayush-bothra/SMBros/blob/vidhi-vora/final-level-completed.gif)
 
 <video width="600" controls>
   <source src="vid.mp4" type="video/mp4">
